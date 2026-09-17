@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مكوى رويال VIP - نظام الإدارة</title>
+    <!-- مكتبة الأيقونات (FontAwesome) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- خطوط جوجل (Cairo) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- ربط ملف التصميم -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <!-- شاشة التحميل (أثناء جلب البيانات من فايربيس) -->
+    <div id="loading-screen">
+        <i class="fa-solid fa-crown loading-icon"></i>
+        <h2>جاري الاتصال بقاعدة بيانات رويال...</h2>
+    </div>
+
+    <!-- الشاشة الرئيسية (اختيار الحساب) -->
+    <div id="main-screen">
+        <button class="login-circle" onclick="window.showPOS()">
+            <i class="fa-solid fa-cash-register"></i>
+            نقطة البيع
+        </button>
+        <button class="login-circle" onclick="window.openAdminLogin()">
+            <i class="fa-solid fa-user-tie"></i>
+            الآدمن
+        </button>
+    </div>
+
+    <!-- شاشة نقطة البيع POS -->
+    <div id="pos-screen" class="screen">
+        <div class="top-bar">
+            <div class="top-bar-title">
+                <i class="fa-solid fa-crown" style="color:var(--gold); margin-left:5px;"></i> 
+                
+            </div>
+            <div class="daily-sales-counter" id="daily-sales-display">
+                مبيعات اليوم: <span id="daily-sales-val">0</span> د.ع
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+                <!-- مؤشر حالة الاتصال والمزامنة -->
+                <div id="sync-status" style="display:flex; align-items:center; gap:5px; padding:0 10px; font-size:14px; color:var(--green-success); font-weight:bold; cursor:help;" title="متصل بالسحابة">
+                    <i class="fa-solid fa-cloud" id="sync-icon"></i> <span id="sync-text">متصل</span>
+                </div>
+                <button class="top-bar-btn" id="fullscreen-btn" onclick="window.toggleFullScreen()" title="تكبير/تصغير الشاشة"><i class="fa-solid fa-expand"></i></button>
+                <!-- الزر الجديد لمستودع الاستلام -->
+                <button class="top-bar-btn" onclick="window.openActiveOrders()"><i class="fa-solid fa-box-open"></i> مستودع الاستلام</button>
+                <button class="top-bar-btn" style="border-color:var(--gold); color:var(--gold);" onclick="window.openCashierSubs()"><i class="fa-solid fa-crown"></i> إدارة الزبائن (VIP)</button>
+                <button class="top-bar-btn" onclick="window.openPreviousInvoices()"><i class="fa-solid fa-receipt"></i> الفواتير السابقة</button>
+                <button class="top-bar-btn" onclick="window.openExpensesModal()"><i class="fa-solid fa-money-bill-wave"></i> صرفيات</button>
+                <button class="top-bar-btn" style="border-color:#4a90e2; color:#4a90e2; font-weight:bold;" onclick="window.openPartnerTxModal()"><i class="fa-solid fa-vault"></i> سحب/إيداع</button>
+                <button class="top-bar-btn" style="border-color:var(--red-danger); color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
+            </div>
+        </div>
+        
+        <div id="pos-content">
+            <!-- قائمة المبيعات (اليسار) - أصبحت 50% من الشاشة -->
+            <div class="cart-section">
+                <div class="cart-table-wrapper">
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th style="width:5%">#</th>
+                                <th style="width:35%">القطعة</th>
+                                <th style="width:20%">السعر</th>
+                                <th style="width:25%">العدد</th>
+                                <th style="width:15%">المجموع</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cart-items">
+                            <!-- Items will be injected here via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="cart-footer">
+                    <div class="pos-options">
+                        <input type="text" id="cart-notes" class="note-input" placeholder="ملاحظات عامة على الفاتورة (اختياري)...">
+                    </div>
+                    <label class="print-checkbox">
+                        <input type="checkbox" id="auto-print" checked> طباعة الفاتورة تلقائياً
+                    </label>
+                    <div class="cart-total">
+                        <span>المجموع الكلي:</span>
+                        <span id="cart-total-val">0 د.ع</span>
+                    </div>
+                    <div class="action-buttons">
+                        <!-- تم إضافة الدفع الإلكتروني واختصار Ctrl+S -->
+                        <!-- الزر الموحد الجديد لنظام إدارة المغاسل -->
+                        <button class="btn btn-cash" id="btn-main-checkout" style="grid-column: span 2; font-size: 22px; padding: 20px;" onclick="window.openCheckoutModal()">
+                            <i class="fa-solid fa-file-signature"></i> بيع (تسجيل طلب)
+                        </button>
+                        <!-- الزر الجديد: يظهر فقط عند الضغط على تعديل طلب -->
+                        <button class="btn btn-confirm" id="btn-save-edit" style="display:none; grid-column: span 2; font-size: 22px; padding: 20px; background: #4a90e2; color: white;" onclick="window.openCheckoutModal()">
+                            <i class="fa-solid fa-floppy-disk"></i> حفظ التعديلات وإكمال
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+         <!-- المنتجات (اليمين) - أصبحت 50% من الشاشة -->
+        <div class="items-section-container">
+            <div class="items-header">
+                <h3>الخدمات والقطع</h3>
+                <div class="header-actions">
+                    <button class="btn-royal-action" onclick="window.openAddServiceModal()">
+                        <i class="fa-solid fa-plus"></i> إضافة
+                    </button>
+                    <button class="btn-royal-action" onclick="window.openEditServiceModal()">
+                        <i class="fa-solid fa-pen"></i> تعديل
+                    </button>
+                    <button class="btn-royal-action" onclick="window.openDeleteServiceModal()">
+                        <i class="fa-solid fa-trash"></i> حذف
+                    </button>
+                </div>
+            </div>
+            
+            <!-- الفئات (الاشتراكات VIP) -->
+            <div id="packages-container" style="padding: 10px 20px 0; display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <!-- سيتم توليد البطاقات برمجياً (برونزية، فضية، ذهبية، ماسية) بتصميم معدني فخم -->
+            </div>
+            
+            <div style="display:flex; align-items:center; margin: 15px 20px 5px;">
+                <hr style="flex:1; border: none; border-top: 1px dashed var(--gold); opacity:0.5;">
+                <span style="color:var(--text-gray); font-size:12px; margin:0 10px; font-weight:bold;">الخدمات والقطع</span>
+                <hr style="flex:1; border: none; border-top: 1px dashed var(--gold); opacity:0.5;">
+            </div>
+
+            <div class="items-section" id="items-grid" style="padding-top: 5px;">
+                <!-- Items generated via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+    <!-- شاشة الآدمن -->
+    <div id="admin-screen" class="screen">
+        <div class="admin-layout">
+            <div class="admin-sidebar">
+                <div class="admin-sidebar-logo">
+                    <i class="fa-solid fa-crown" style="color:var(--gold);"></i><br>
+                    إدارة رويال
+                </div>
+                <button class="admin-nav-btn active" onclick="window.switchAdminTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> الإحصائيات الشاملة</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('debts')"><i class="fa-solid fa-address-book"></i> الديون والذمم</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('costs')"><i class="fa-solid fa-building-columns"></i> التكاليف التشغيلية</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('logs')"><i class="fa-solid fa-clock-rotate-left"></i> سجل الحركات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('wallet')"><i class="fa-solid fa-wallet"></i> المحفظة </button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('subscriptions')"><i class="fa-solid fa-id-card-clip"></i> إدارة الاشتراكات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('settings')"><i class="fa-solid fa-gears"></i> التخصيصات</button>
+                <button class="admin-nav-btn" onclick="window.switchAdminTab('invoice-designer')"><i class="fa-solid fa-file-pen"></i> تصميم الفاتورة A5</button>
+                <button class="admin-nav-btn" style="margin-top:auto; color:var(--red-danger);" onclick="window.exitToMain()"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</button>
+            </div>
+            <div class="admin-content">
+                <!-- قسم الإحصائيات -->
+                <div id="admin-dashboard" class="admin-section active">
+                    <div class="admin-control-panel">
+                        <h2 style="color:var(--gold); margin:0;">الملخص المالي</h2>
+                        <div class="admin-filters">
+                            <input type="month" id="admin-month-filter" class="note-input" style="width:auto;" onchange="window.updateAdminDashboard()">
+                            <button class="btn-royal-action" onclick="window.loadAllTimeStats()"><i class="fa-solid fa-globe"></i> عرض الكلي</button>
+                            <button class="btn-royal-action" style="background:var(--green-success); color:white; border-color:var(--green-success);" onclick="window.exportToExcel()"><i class="fa-solid fa-file-excel"></i> تصدير Excel</button>
+                        </div>
+                    </div>
+                    <div class="stats-grid" style="gap: 15px;">
+                        <div class="stat-card">
+                            <i class="fa-solid fa-money-bill-wave stat-icon"></i>
+                            <div class="stat-title">إجمالي المبيعات (كاش)</div>
+                            <div class="stat-value" id="admin-month-sales-cash">0 د.ع</div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-credit-card stat-icon" style="color: #4a90e2;"></i>
+                            <div class="stat-title">إجمالي المبيعات (إلكتروني)</div>
+                            <div class="stat-value" style="color: #4a90e2;" id="admin-month-sales-electronic">0 د.ع</div>
+                        </div>
+                        <div class="stat-card" style="cursor: pointer; border: 1px dashed var(--red-danger);" onclick="window.openAdminExpensesModal()" title="اضغط لعرض التفاصيل">
+                            <i class="fa-solid fa-money-bill-transfer stat-icon" style="color:var(--red-danger);"></i>
+                            <div class="stat-title">المصروفات (اضغط للتفاصيل)</div>
+                            <div class="stat-value" style="color:var(--red-danger);" id="admin-month-expenses">0 د.ع</div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-building stat-icon" style="color:var(--red-danger);"></i>
+                            <div class="stat-title">التكاليف التشغيلية الثابتة</div>
+                            <div class="stat-value" style="color:var(--red-danger);" id="admin-month-costs">0 د.ع</div>
+                        </div>
+                        <div class="stat-card" style="border-color:var(--gold); grid-column: span 2;">
+                            <i class="fa-solid fa-sack-dollar stat-icon"></i>
+                            <div class="stat-title">صافي الربح الفعلي</div>
+                            <div class="stat-value profit" id="admin-net-profit">0 د.ع</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin: 30px 0 15px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;">التقارير اليومية المفصلة</h3>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ</th><th>اليوم</th><th>المبيعات</th><th>المصروفات</th><th>تفاصيل الصرف</th><th>الصافي</th></tr></thead>
+                        <tbody id="admin-daily-reports-body"></tbody>
+                    </table>
+                </div>
+                
+                <!-- قسم التكاليف التشغيلية -->
+                <div id="admin-costs" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">التكاليف التشغيلية (تخصم من الربح الشهري)</h2>
+                    <div style="background:var(--dark-gray); padding:20px; border-radius:15px; margin-bottom:20px;">
+                        <div class="input-group">
+                            <label>نوع التكلفة (إيجار، راتب عامل، كهرباء، مواد غسيل)</label>
+                            <input type="text" id="cost-name" placeholder="مثال: راتب أحمد">
+                        </div>
+                        <div class="input-group">
+                            <label>المبلغ (د.ع)</label>
+                            <input type="number" id="cost-amount">
+                        </div>
+                        <button class="btn btn-confirm" onclick="window.addOperatingCost()">إضافة تكلفة تشغيلية</button>
+                    </div>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th></tr></thead>
+                        <tbody id="costs-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- قسم الديون -->
+                <div id="admin-debts" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">سجل الديون (البيع الآجل)</h2>
+                    <table class="cart-table">
+                        <thead><tr><th>الزبون</th><th>رقم الهاتف</th><th>الفواتير المرتبطة</th><th>إجمالي الدين</th><th>الإجراء</th></tr></thead>
+                        <tbody id="debts-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- قسم سجل الحركات (Audit Log) -->
+                <div id="admin-logs" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">سجل الحركات والمراقبة</h2>
+                    <div class="admin-filters" style="margin-bottom:20px;">
+    <input type="date" id="log-date-from" class="note-input" onchange="window.renderLogs()" title="من تاريخ">
+    <input type="date" id="log-date-to" class="note-input" onchange="window.renderLogs()" title="إلى تاريخ">
+    <input type="text" id="log-search-text" class="note-input" style="flex: 2;" placeholder="ابحث عن حركة (مثال: حذف فاتورة)..." onkeyup="window.renderLogs()">
+</div>
+                    <table class="cart-table">
+                        <thead><tr><th>التاريخ والوقت</th><th>نوع الحركة</th><th>التفاصيل</th><th>المبلغ</th><th>إجراء</th></tr></thead>
+                        <tbody id="logs-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- قسم المحفظة (الشركاء) -->
+                <div id="admin-wallet" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);"><i class="fa-solid fa-wallet"></i> المحفظة (أرصدة الشركاء وحركة الأموال)</h2>
+                    
+                    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 30px;">
+                        <!-- بطاقة أحمد رزاق -->
+                        <div class="stat-card" style="background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%); border-color: #4a90e2; box-shadow: 0 10px 20px rgba(74, 144, 226, 0.2);">
+                            <i class="fa-solid fa-user-tie stat-icon" style="color: #4a90e2; font-size: 50px;"></i>
+                            <div class="stat-title" style="color: #fff; font-size: 20px; font-weight: bold;">أحمد رزاق العامري</div>
+                            <div class="stat-value" id="wallet-ahmed-razaq" style="color: #4a90e2; font-size: 36px; margin-top: 15px; direction: ltr;">0 د.ع</div>
+                            <div style="color:var(--text-gray); font-size: 14px; margin-top: 10px;">الرصيد الفعلي (بناءً على التراكمي)</div>
+                        </div>
+                        
+                        <!-- بطاقة أحمد شبع -->
+                        <div class="stat-card" style="background: linear-gradient(135deg, #1a1a1a 0%, #34495e 100%); border-color: var(--green-success); box-shadow: 0 10px 20px rgba(46, 213, 115, 0.2);">
+                            <i class="fa-solid fa-user-tie stat-icon" style="color: var(--green-success); font-size: 50px;"></i>
+                            <div class="stat-title" style="color: #fff; font-size: 20px; font-weight: bold;">أحمد شاكر شبع</div>
+                            <div class="stat-value" id="wallet-ahmed-shaba" style="color: var(--green-success); font-size: 36px; margin-top: 15px; direction: ltr;">0 د.ع</div>
+                            <div style="color:var(--text-gray); font-size: 14px; margin-top: 10px;">الرصيد الفعلي (بناءً على التراكمي)</div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin: 40px 0 20px; color: var(--gold); border-bottom: 1px solid var(--light-gray); padding-bottom: 10px;"><i class="fa-solid fa-list-check"></i> سجل حركات المحفظة (سحب وإيداع)</h3>
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ والوقت</th>
+                                <th>الحساب</th>
+                                <th>نوع العملية</th>
+                                <th style="color:var(--gold);">المبلغ</th>
+                                <th>السبب</th>
+                                <th>الرصيد الحالي</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wallet-transactions-body"></tbody>
+                    </table>
+                </div>
+                <!-- قسم إدارة الاشتراكات (VIP) للآدمن -->
+                <div id="admin-subscriptions" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);"><i class="fa-solid fa-id-card-clip"></i> إدارة الاشتراكات وعروض الزبائن</h2>
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>اسم الزبون</th>
+                                <th>رقم الهاتف</th>
+                                <th>الفئة</th>
+                                <th style="color:var(--green-success);">المبلغ المدفوع</th>
+                                <th style="color:var(--gold);">الرصيد المتبقي</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-subs-body"></tbody>
+                    </table>
+                </div>
+            <!-- قسم التخصيصات -->
+                <div id="admin-settings" class="admin-section">
+                    <h2 style="margin-bottom:30px; color:var(--gold);">تخصيصات النظام</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card" style="text-align: right;">
+                            <h3 style="color:var(--text-white); margin-bottom: 20px;">تغيير بيانات الفاتورة</h3>
+                            <div class="input-group"><label>اسم المكوى</label><input type="text" id="set-name"></div>
+                            <div class="input-group"><label>رقم الهاتف</label><input type="text" id="set-phone"></div>
+                            <div class="input-group"><label>العنوان</label><input type="text" id="set-address"></div>
+                            <button class="btn-royal-action" style="width: 100%; justify-content: center;" onclick="window.saveSettings()">حفظ البيانات</button>
+                        </div>
+                        <div class="stat-card" style="text-align: right; border-color: var(--red-danger);">
+                            <h3 style="color:var(--red-danger); margin-bottom: 20px;">الأمان (كلمة المرور)</h3>
+                            <div class="input-group"><label>كلمة المرور القديمة</label><input type="password" id="set-old-pass"></div>
+                            <div class="input-group"><label>كلمة المرور الجديدة</label><input type="password" id="set-new-pass"></div>
+                            <div class="input-group"><label>تأكيد الجديدة</label><input type="password" id="set-confirm-pass"></div>
+                            <button class="btn btn-confirm" style="width: 100%; background: var(--red-danger); color: white;" onclick="window.changePassword()">تغيير الرمز</button>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                
+                <!-- قسم تصميم الفاتورة A5 (المحرر المرئي) -->
+                <div id="admin-invoice-designer" class="admin-section">
+                    <h2 style="margin-bottom:20px; color:var(--gold);">تصميم فاتورة A5 (المحرر المرئي)</h2>
+                    <div style="background:var(--dark-gray); padding:20px; border-radius:15px; border:1px solid var(--light-gray);">
+                        <!-- شريط الأدوات -->
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px; background:#111; padding:10px; border-radius:8px;" id="editor-toolbar">
+                            <button class="top-bar-btn" onclick="document.execCommand('bold', false, null)"><i class="fa-solid fa-bold"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('italic', false, null)"><i class="fa-solid fa-italic"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('underline', false, null)"><i class="fa-solid fa-underline"></i></button>
+                            <div style="width:2px; background:var(--light-gray); margin:0 5px;"></div>
+                            <button class="top-bar-btn" onclick="document.execCommand('justifyRight', false, null)"><i class="fa-solid fa-align-right"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('justifyCenter', false, null)"><i class="fa-solid fa-align-center"></i></button>
+                            <button class="top-bar-btn" onclick="document.execCommand('justifyLeft', false, null)"><i class="fa-solid fa-align-left"></i></button>
+                            <div style="width:2px; background:var(--light-gray); margin:0 5px;"></div>
+                            <select id="font-size-selector" class="note-input" style="width:auto; padding:5px;" onchange="document.execCommand('fontSize', false, this.value)">
+                                <option value="3">خط عادي</option>
+                                <option value="4">خط متوسط</option>
+                                <option value="5">خط كبير</option>
+                                <option value="6">خط ضخم</option>
+                                <option value="7">خط عملاق</option>
+                            </select>
+                        </div>
+                        
+                        <!-- أزرار المتغيرات الذكية -->
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid var(--light-gray);">
+                            <span style="color:var(--text-gray); align-self:center;">إدراج سريع:</span>
+                            <button class="btn-royal-action" onclick="window.insertTag('[رقم_الطلب]')">رقم الطلب</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[اليوم]')">اليوم</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[الوقت]')">الوقت</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[اسم_الزبون]')">اسم الزبون</button>
+                            <button class="btn-royal-action" style="border-color:var(--gold);" onclick="window.insertTag('[جدول_المبيعات]')">جدول المبيعات</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[المجموع]')">المجموع</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[العربون]')">العربون</button>
+                            <button class="btn-royal-action" onclick="window.insertTag('[المتبقي]')">المتبقي</button>
+                        </div>
+                        
+                        <!-- ورقة الـ A5 الافتراضية للتصميم -->
+                        <div style="background:white; color:black; width:148mm; min-height:210mm; padding:20mm; margin:0 auto; font-family:'Cairo', sans-serif; box-shadow:0 0 20px rgba(0,0,0,0.8); overflow-wrap: break-word;" id="invoice-editor-area" contenteditable="true">
+                            <!-- سيتم حقن التصميم الافتراضي هنا بواسطة JS -->
+                        </div>
+                        
+                        <div style="text-align:center; margin-top:30px;">
+                            <button class="btn btn-confirm" style="width:100%; max-width:400px; margin:0 auto; font-size:20px;" onclick="window.saveInvoiceDesign()"><i class="fa-solid fa-floppy-disk"></i> حفظ التصميم كافتراضي</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- إغلاق admin-content -->
+        </div>
+    </div>
+           
+    <!-- نافذة تفاصيل الصرفيات الخاصة بالآدمن -->
+    <div id="modal-admin-expenses" class="modal-overlay">
+        <div class="modal-content invoices-list-modal">
+            <div class="modal-title">تفاصيل الصرفيات للفترة المحددة</div>
+            <table class="invoices-table">
+                <thead><tr><th>التاريخ</th><th>اليوم</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
+                <tbody id="admin-expenses-detail-body"></tbody>
+            </table>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button></div>
+        </div>
+    </div>
+
+    <!-- القوائم المنبثقة (Modals) -->
+    
+    <!-- 1. تسجيل دخول الآدمن -->
+    <div id="modal-admin-login" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title"><i class="fa-solid fa-crown"></i> تسجيل دخول إدارة رويال</div>
+            <div class="input-group">
+                <label>كلمة المرور</label>
+                <input type="password" id="admin-password" placeholder="أدخل رمز الدخول..." onkeyup="if(event.key === 'Enter') window.checkAdminPassword()">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="window.checkAdminPassword()">دخول</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. اختيار نوع الخدمة -->
+    <div id="modal-service" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" id="service-item-name">اسم القطعة</div>
+            <div class="service-select-btns">
+                <button class="srv-btn btn-wash-iron" onclick="window.addToCartSelected('wash_iron')">
+                    <i class="fa-solid fa-jug-detergent"></i>
+                    <div class="srv-title">غسيل وكوي</div>
+                    <span class="price" id="price-wash">0</span>
+                </button>
+                <button class="srv-btn btn-iron-only" onclick="window.addToCartSelected('iron_only')">
+                    <i class="fa-solid fa-temperature-arrow-up"></i>
+                    <div class="srv-title">كوي فقط</div>
+                    <span class="price" id="price-iron">0</span>
+                </button>
+            </div>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إلغاء</button></div>
+        </div>
+    </div>
+
+    <!-- 3. البيع الآجل (الدين) -->
+    <div id="modal-credit" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">تفاصيل البيع الآجل</div>
+            <div class="input-group">
+                <label>اسم الزبون</label>
+                <input type="text" id="credit-name" placeholder="اسم الزبون...">
+            </div>
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="text" id="credit-phone" placeholder="رقم الهاتف...">
+            </div>
+            <div class="input-group">
+                <label>المبلغ المدفوع مقدماً (إن وجد)</label>
+                <input type="number" id="credit-paid" value="0">
+            </div>
+            <div style="text-align:center; margin-bottom:15px; color:var(--red-danger); display:none;" id="credit-warning">
+                <i class="fa-solid fa-triangle-exclamation"></i> يوجد ديون سابقة على هذا الزبون!
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="window.confirmCreditSale()">حفظ وطباعة</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+<!-- نافذة إيداع وسحب الشركاء (للكاشير) -->
+    <div id="modal-partner-tx" class="modal-overlay" style="z-index: 3000;">
+        <div class="modal-content" style="max-width: 450px; border: 2px solid #4a90e2; box-shadow: 0 10px 40px rgba(74, 144, 226, 0.3);">
+            <div class="modal-title" style="color: #4a90e2; margin-bottom: 20px;"><i class="fa-solid fa-vault"></i> تسجيل حركة مالية (شركاء)</div>
+            
+            <!-- أزرار اختيار نوع العملية بتصميم تفاعلي -->
+            <div class="input-group">
+                <label style="color: var(--gold); font-weight: bold;">نوع العملية</label>
+                <div style="display:flex; gap:10px;">
+                    <label style="flex:1; background:var(--light-gray); padding:15px; border-radius:10px; text-align:center; cursor:pointer; border: 2px solid transparent; transition:0.3s;" id="lbl-tx-deposit" onclick="document.getElementById('lbl-tx-deposit').style.borderColor='var(--green-success)'; document.getElementById('lbl-tx-withdraw').style.borderColor='transparent'; document.getElementById('partner-tx-amount').style.color='var(--green-success)';">
+                        <input type="radio" name="partner_tx_type" value="إيداع" style="display:none;" required>
+                        <i class="fa-solid fa-arrow-down" style="color:var(--green-success); font-size:20px; display:block; margin-bottom:5px;"></i> إيداع
+                    </label>
+                    <label style="flex:1; background:var(--light-gray); padding:15px; border-radius:10px; text-align:center; cursor:pointer; border: 2px solid transparent; transition:0.3s;" id="lbl-tx-withdraw" onclick="document.getElementById('lbl-tx-withdraw').style.borderColor='var(--red-danger)'; document.getElementById('lbl-tx-deposit').style.borderColor='transparent'; document.getElementById('partner-tx-amount').style.color='var(--red-danger)';">
+                        <input type="radio" name="partner_tx_type" value="سحب" style="display:none;" required>
+                        <i class="fa-solid fa-arrow-up" style="color:var(--red-danger); font-size:20px; display:block; margin-bottom:5px;"></i> سحب
+                    </label>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>اختر الحساب</label>
+                <select id="partner-tx-account" style="font-size: 16px; font-weight:bold; padding: 15px;">
+                    <option value="" disabled selected>-- اختر اسم الشريك --</option>
+                    <option value="أحمد رزاق العامري">أحمد رزاق العامري</option>
+                    <option value="أحمد شاكر شبع">أحمد شاكر شبع</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>المبلغ الكامل (د.ع)</label>
+                <input type="number" id="partner-tx-amount" placeholder="أدخل المبلغ..." style="font-size: 22px; font-weight:900; padding: 15px; text-align: center;">
+            </div>
+
+            <div class="input-group">
+                <label>السبب أو التفاصيل (اختياري)</label>
+                <input type="text" id="partner-tx-reason" placeholder="مثال: شراء كاوية، سحب أرباح..." style="padding: 12px;">
+            </div>
+
+            <div class="modal-actions" style="margin-top: 25px;">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white; font-size: 18px;" onclick="window.savePartnerTx()"><i class="fa-solid fa-floppy-disk"></i> تأكيد وتسجيل</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 4. الصرفيات اليومية -->
+    <div id="modal-expenses" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">إضافة مصروف يومي</div>
+            <div class="input-group">
+                <label>تفاصيل الصرف (مثال: بنزين مولدة، ضيافة...)</label>
+                <input type="text" id="expense-detail" placeholder="التفاصيل...">
+            </div>
+            <div class="input-group">
+                <label>المبلغ (د.ع)</label>
+                <input type="number" id="expense-amount">
+            </div>
+            
+            <!-- الزر الجديد لعرض الصرفيات السابقة -->
+            <button class="btn-royal-action" style="width: 100%; justify-content: center; margin-bottom: 20px; background: var(--light-gray);" onclick="window.openPreviousExpenses()">
+                <i class="fa-solid fa-list-ul"></i> عرض الصرفيات السابقة
+            </button>
+            
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--red-danger); color:white;" onclick="window.saveExpense()">خصم من صندوق اليوم</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4.1. قائمة الصرفيات السابقة (جديد) -->
+    <div id="modal-previous-expenses" class="modal-overlay">
+        <div class="modal-content invoices-list-modal">
+            <div class="modal-title">سجل الصرفيات السابقة</div>
+            <table class="invoices-table">
+                <thead><tr><th>التاريخ</th><th>التفاصيل</th><th>المبلغ</th><th>إجراءات</th></tr></thead>
+                <tbody id="expenses-list-body"></tbody>
+            </table>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4.2. تعديل مصروف (جديد) -->
+    <div id="modal-edit-expense" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" style="color: #4a90e2;">تعديل مصروف</div>
+            <div class="input-group">
+                <label>التفاصيل</label>
+                <input type="text" id="edit-expense-detail">
+            </div>
+            <div class="input-group">
+                <label>المبلغ (د.ع)</label>
+                <input type="number" id="edit-expense-amount">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:#4a90e2; color:white;" onclick="window.saveEditedExpense()">حفظ التعديلات</button>
+                <button class="btn btn-cancel" onclick="window.openPreviousExpenses()">رجوع</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. الفواتير السابقة -->
+    <div id="modal-invoices" class="modal-overlay">
+        <div class="modal-content invoices-list-modal">
+            <div class="modal-title">سجل الفواتير (بحث وتعديل)</div>
+            <div class="admin-filters" style="margin-bottom:20px;">
+    <input type="date" id="inv-date-filter" class="note-input" onchange="window.openPreviousInvoices()" title="تاريخ الفواتير">
+    <input type="text" id="inv-search-text" class="note-input" style="flex: 2;" placeholder="ابحث برقم الفاتورة أو اسم الزبون..." onkeyup="window.openPreviousInvoices()">
+</div>
+            <table class="invoices-table">
+                <thead><tr><th>الوقت</th><th>رقم الفاتورة</th><th>النوع</th><th>المبلغ</th><th>إجراءات</th></tr></thead>
+                <tbody id="invoices-list-body"></tbody>
+            </table>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+<!-- نافذة تسجيل الطلب الجديدة (بديلاً عن البيع المباشر) -->
+    <div id="modal-checkout" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-title"><i class="fa-solid fa-file-signature"></i> تفاصيل الطلب</div>
+            <div class="input-group">
+                <label>اسم الزبون (مطلوب لفتح الطلب)</label>
+                <input type="text" id="checkout-name" placeholder="مثال: أحمد محمد...">
+            </div>
+            <div class="input-group">
+                <label>رقم الهاتف (اختياري)</label>
+                <input type="tel" id="checkout-phone" placeholder="مثال: 07800000000...">
+            </div>
+            <div style="display: flex; gap: 15px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>تاريخ الاستلام المتوقع (اختياري)</label>
+                    <input type="date" id="checkout-pickup-date">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>الوقت (اختياري)</label>
+                    <input type="time" id="checkout-pickup-time">
+                </div>
+            </div>
+            <div class="input-group">
+                <label style="color: var(--gold); font-weight: bold;">العربون المدفوع الآن (د.ع) - الافتراضي صفر</label>
+                <input type="number" id="checkout-deposit" value="0" min="0" style="font-size: 20px; font-weight: bold; color: var(--green-success);">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--gold-gradient); color:#000;" onclick="window.confirmOrder()">حفظ الطلب وطباعة</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة مستودع الاستلام (الطلبات النشطة) -->
+    <div id="modal-active-orders" class="modal-overlay">
+        <div class="modal-content invoices-list-modal" style="max-width: 1000px;">
+            <div class="modal-title"><i class="fa-solid fa-box-open"></i> مستودع الاستلام (الطلبات قيد الانتظار)</div>
+            <div class="admin-filters" style="margin-bottom:20px;">
+                <input type="text" id="active-search-text" class="note-input" style="flex: 2;" placeholder="ابحث برقم الطلب اليومي، اسم الزبون، أو رقم الهاتف..." onkeyup="window.renderActiveOrders()">
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="invoices-table">
+                    <thead>
+                        <tr>
+                            <th style="color:var(--text-white);">رقم الطلب</th>
+                            <th>الزبون</th>
+                            <th>رقم الهاتف</th>
+                            <th>موعد الاستلام</th>
+                            <th>الإجمالي</th>
+                            <th style="color:var(--green-success);">العربون</th>
+                            <th style="color:var(--red-danger);">المتبقي</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-orders-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق المستودع</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 6. نافذة التأكيد المخصصة (بديل رسالة المتصفح المزعجة) -->
+    <div id="modal-custom-confirm" class="modal-overlay" style="z-index: 3000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 60px; color: var(--red-danger); margin-bottom: 20px;"></i>
+            <div class="modal-title" style="color: var(--red-danger); margin-bottom: 10px;">تأكيد الحذف</div>
+            <p id="custom-confirm-msg" style="font-size: 18px; margin-bottom: 25px; color: var(--text-white);"></p>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: var(--red-danger); color: white;" onclick="window.executeConfirm()">نعم، احذف نهائياً</button>
+                <button class="btn btn-cancel" onclick="window.closeConfirmModal()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11. نافذة التنبيهات الذكية الفخمة (بديل المتصفح) -->
+    <div id="modal-custom-alert" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 40px 20px;">
+            <div id="alert-icon-container" style="font-size: 80px; margin-bottom: 20px;"></div>
+            <div id="alert-title" style="font-size: 26px; font-weight: 900; margin-bottom: 15px;"></div>
+            <p id="alert-message" style="font-size: 18px; color: var(--text-white); margin-bottom: 30px;"></p>
+            <button class="btn btn-confirm" style="width: 100%; background: var(--light-gray); color: white;" onclick="window.closeAlertModal()">حسناً</button>
+        </div>
+    </div>
+
+    <!-- 6. إضافة خدمة جديدة (الكتالوج) -->
+    <div id="modal-add-service" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-title">إضافة خدمة / قطعة جديدة</div>
+            <div class="input-group">
+                <label>اسم القطعة (مثال: فستان سهرة)</label>
+                <input type="text" id="new-srv-name" placeholder="أدخل اسم القطعة...">
+            </div>
+            <div class="input-group">
+                <label>اختر أيقونة مناسبة (اللوكو)</label>
+                <div class="icon-picker-grid" id="icon-picker"></div>
+                <input type="hidden" id="new-srv-icon" value="fa-shirt">
+            </div>
+            <div style="display:flex; gap:15px;">
+                <div class="input-group" style="flex:1;">
+                    <label>سعر الغسيل والكوي (د.ع)</label>
+                    <input type="number" id="new-srv-price-wash" placeholder="مثال: 5000">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label>سعر الكوي فقط (د.ع)</label>
+                    <input type="number" id="new-srv-price-iron" placeholder="مثال: 3000">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="window.saveNewService()">حفظ الخدمة</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. عرض الفاتورة (بدون طباعة) -->
+    <div id="modal-view-invoice" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-title"><i class="fa-solid fa-file-invoice"></i> تفاصيل الفاتورة</div>
+            <div class="view-invoice-details">
+                <p><strong>رقم الفاتورة:</strong> <span id="view-inv-id"></span></p>
+                <p><strong>التاريخ والوقت:</strong> <span id="view-inv-date"></span></p>
+                <p><strong>نوع الدفع:</strong> <span id="view-inv-type"></span></p>
+                <p id="view-inv-customer-row" style="display:none;"><strong>الزبون:</strong> <span id="view-inv-customer"></span></p>
+            </div>
+            <table class="cart-table" style="margin-top: 15px;">
+                <thead><tr><th>القطعة</th><th>النوع</th><th>العدد</th><th>السعر</th></tr></thead>
+                <tbody id="view-inv-items"></tbody>
+            </table>
+            <div class="view-invoice-total">المجموع: <span id="view-inv-total"></span> د.ع</div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" id="btn-print-from-view"><i class="fa-solid fa-print"></i> طباعة الآن</button>
+                <button class="btn btn-cancel" onclick="document.getElementById('modal-view-invoice').style.display='none'">رجوع</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 8. تعديل خدمة موجودة -->
+    <div id="modal-edit-service" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-title">تعديل خدمة / قطعة</div>
+            <div class="input-group">
+                <label>اختر القطعة لتعديلها</label>
+                <select id="edit-srv-select" onchange="window.loadServiceToEdit()"></select>
+            </div>
+            <div class="input-group">
+                <label>اسم القطعة الجديد</label>
+                <input type="text" id="edit-srv-name">
+            </div>
+            <div style="display:flex; gap:15px;">
+                <div class="input-group" style="flex:1;">
+                    <label>سعر الغسيل والكوي الجديد (د.ع)</label>
+                    <input type="number" id="edit-srv-price-wash">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label>سعر الكوي فقط الجديد (د.ع)</label>
+                    <input type="number" id="edit-srv-price-iron">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" onclick="window.saveEditedService()">حفظ التعديلات</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 9. حذف خدمة -->
+    <div id="modal-delete-service" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" style="color: var(--red-danger);">حذف خدمة / قطعة</div>
+            <div class="input-group">
+                <label>اختر القطعة لحذفها نهائياً</label>
+                <select id="delete-srv-select"></select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: var(--red-danger); color: white;" onclick="window.confirmDeleteService()">تأكيد الحذف</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+<!-- 12. نافذة تسديد الديون (VIP Prompt) -->
+    <div id="modal-pay-debt" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-title" style="color: #4a90e2;"><i class="fa-solid fa-hand-holding-dollar"></i> تسديد دفعة</div>
+            <p id="debt-pay-msg" style="text-align: center; margin-bottom: 15px;"></p>
+            <div class="input-group">
+                <label>المبلغ المدفوع الآن (نقدي)</label>
+                <input type="number" id="debt-pay-amount" placeholder="أدخل المبلغ...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white;" onclick="window.confirmPayDebt()">تسديد</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    
+   <!-- هيكل الطباعة (مخفي، يستقبل تصميم الـ A5 لحظة الطباعة) -->
+    <div id="print-area">
+        <!-- سيتم حقن التصميم المرئي المحفوظ هنا برمجياً واستبدال المتغيرات بالبيانات الحقيقية -->
+    </div>
+
+<!-- 14. نافذة الدفع عند الاستلام (حل مشكلة المستودع) -->
+    <div id="modal-pickup-payment" class="modal-overlay" style="z-index: 3500;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-handshake"></i> إتمام تسليم الطلب</div>
+            <p style="font-size: 18px; margin-bottom: 10px;">المبلغ المتبقي للدفع:</p>
+            <div style="font-size: 30px; font-weight: 900; color: var(--red-danger); margin-bottom: 25px;"><span id="pickup-amount-display">0</span> د.ع</div>
+            <p style="margin-bottom: 15px; color: var(--text-gray);">اختر طريقة الدفع للمبلغ المتبقي:</p>
+            <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+                <button class="btn btn-cash" style="width: 100%;" onclick="window.finalizePickup('cash')"><i class="fa-solid fa-money-bill"></i> نقدي (كاش)</button>
+                <button class="btn btn-electronic" style="width: 100%;" onclick="window.finalizePickup('electronic')"><i class="fa-solid fa-credit-card"></i> إلكتروني</button>
+                <button class="btn btn-credit" style="width: 100%;" onclick="window.finalizePickup('credit')"><i class="fa-solid fa-address-book"></i> آجل (ذمة)</button>
+                <button class="btn btn-confirm" style="width: 100%; background: var(--gold-gradient); color: #000;" onclick="window.openPickupSubscription()"><i class="fa-solid fa-gem"></i> عبر إشتراك (باقة VIP)</button>
+                <button class="btn btn-cancel" style="width: 100%; margin-top: 10px;" onclick="window.closeModals()">إلغاء ورجوع للمستودع</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 15. نافذة تفاصيل البيع الآجل المخصصة -->
+    <div id="modal-pickup-credit" class="modal-overlay" style="z-index: 3600;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" style="color: #4a90e2;"><i class="fa-solid fa-address-book"></i> تسجيل ذمة (بيع آجل)</div>
+            
+            <div class="input-group">
+                <label>اختر من الزبائن المسجلين سابقاً (إن وجد)</label>
+                <select id="credit-existing-customer" onchange="window.selectExistingCustomer()"></select>
+            </div>
+            
+            <div style="text-align:center; color:var(--text-gray); margin-bottom:15px;">--- أو إضافة حساب زبون جديد ---</div>
+            
+            <div class="input-group">
+                <label>اسم الزبون (مطلوب)</label>
+                <input type="text" id="credit-new-name" placeholder="أدخل اسم الزبون...">
+            </div>
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="tel" id="credit-new-phone" placeholder="أدخل رقم الهاتف...">
+            </div>
+            <div class="input-group">
+                <label style="color: var(--green-success); font-weight: bold;">المبلغ المسدد الآن من المتبقي (د.ع)</label>
+                <input type="number" id="credit-paid-now" value="0">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white;" onclick="window.confirmPickupCredit()">تأكيد الذمة وتسليم</button>
+                <button class="btn btn-cancel" onclick="document.getElementById('modal-pickup-credit').style.display='none'">رجوع للخيارات</button>
+            </div>
+        </div>
+    </div>
+    
+<!-- 13. نافذة المشاهدة العميقة للسجل (Deep View) -->
+    <div id="modal-log-details" class="modal-overlay" style="z-index: 5000;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-title" style="color: #4a90e2;"><i class="fa-solid fa-microscope"></i> تفاصيل الحركة العميقة</div>
+            <div id="log-deep-view-content" style="background: #0a0a0a; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; text-align: right; border: 1px solid #333;">
+                <!-- سيتم حقن البيانات هنا -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" style="width: 100%;" onclick="window.closeModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+<!-- ================== نوافذ الاشتراكات (VIP) ================== -->
+    
+    <!-- 1. شراء اشتراك / باقة جديدة -->
+    <div id="modal-buy-sub" class="modal-overlay" style="z-index: 3100;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" id="buy-sub-title" style="color: var(--gold);"><i class="fa-solid fa-crown"></i> تفعيل فئة VIP</div>
+            
+            <div class="input-group" style="position: relative;">
+                <label>اسم الزبون (بحث ذكي أو إضافة جديد)</label>
+                <input type="text" id="sub-customer-name" placeholder="اكتب اسم الزبون..." oninput="window.filterCustomerNames(this.value)" autocomplete="off">
+                <!-- قائمة الاقتراحات المنسدلة -->
+                <div id="sub-autocomplete-list" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--light-gray); border:1px solid var(--gold); z-index:99; max-height:150px; overflow-y:auto; border-radius:0 0 8px 8px;"></div>
+            </div>
+            
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="tel" id="sub-customer-phone" placeholder="أدخل رقم الهاتف...">
+            </div>
+            <div class="input-group">
+                <label>تاريخ الاشتراك</label>
+                <input type="date" id="sub-date" readonly style="background: rgba(255,255,255,0.1); color: var(--gold); font-weight:bold;">
+            </div>
+            
+            <input type="hidden" id="sub-package-id">
+            
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--gold-gradient); color:#000;" onclick="window.confirmBuySub()"><i class="fa-solid fa-check"></i> تفعيل ودفع</button>
+                <button class="btn btn-cancel" onclick="window.closeModals()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. إدارة الزبائن (للكاشير) -->
+    <div id="modal-cashier-subs" class="modal-overlay" style="z-index: 3100;">
+        <div class="modal-content invoices-list-modal" style="max-width: 1000px;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-users-viewfinder"></i> إدارة الزبائن المشتركين</div>
+            <div class="admin-filters" style="margin-bottom:20px;">
+                <input type="text" id="cashier-sub-search" class="note-input" style="flex: 2;" placeholder="ابحث باسم الزبون أو الهاتف..." onkeyup="window.renderCashierSubs()">
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="invoices-table">
+                    <thead><tr>
+                        <th>التاريخ</th><th>اسم الزبون</th><th>الهاتف</th><th>الفئة</th><th style="color:var(--green-success);">دفع</th><th style="color:var(--gold);">المتبقي له</th><th>إجراءات</th>
+                    </tr></thead>
+                    <tbody id="cashier-subs-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="window.closeModals()">إغلاق</button></div>
+        </div>
+    </div>
+
+    <!-- 3. نافذة الدفع المختلط (اشتراك + كاش) -->
+    <div id="modal-pay-via-sub" class="modal-overlay" style="z-index: 3600;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-gem"></i> الدفع عبر الاشتراك</div>
+            <div class="input-group">
+                <label>اختر الزبون المشترك</label>
+                <select id="pay-sub-select" onchange="window.calculateSubPayment()" style="font-size: 16px; font-weight:bold;"></select>
+            </div>
+            <div id="pay-sub-details" style="display:none; background:#111; padding:15px; border-radius:8px; border:1px solid #444; margin-bottom:15px;">
+                <p>إجمالي الفاتورة: <span id="pay-sub-total" style="color:var(--text-white); font-weight:bold;">0</span> د.ع</p>
+                <p>الرصيد المتاح للزبون: <span id="pay-sub-balance" style="color:var(--gold); font-weight:bold;">0</span> د.ع</p>
+                <hr style="border: 1px dashed #444; margin:10px 0;">
+                <p style="font-size:18px;">سيتم خصم: <span id="pay-sub-deduct" style="color:var(--green-success); font-weight:900;">0</span> د.ع من الباقة</p>
+                <p style="font-size:18px; color:var(--red-danger); font-weight:900;" id="pay-sub-cash-row">متبقي يُدفع نقداً (كاش): <span id="pay-sub-cash">0</span> د.ع</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:var(--gold-gradient); color:#000;" onclick="window.confirmSubPayment()">تنفيذ العملية وطباعة</button>
+                <button class="btn btn-cancel" onclick="document.getElementById('modal-pay-via-sub').style.display='none'">رجوع</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. نافذة تحذير الحذف الذكية المحاسبية -->
+    <div id="modal-delete-sub-warning" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 450px; text-align:center; border: 2px solid var(--red-danger);">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 60px; color: var(--red-danger); margin-bottom: 20px;"></i>
+            <div class="modal-title" style="color: var(--red-danger); margin-bottom: 10px;">تحذير: حذف اشتراك زبون</div>
+            <div id="delete-sub-math-details" style="background:#111; padding:15px; border-radius:8px; text-align:right; margin-bottom:20px;">
+                <!-- سيتم حقن التفاصيل هنا برمجياً -->
+            </div>
+            <input type="hidden" id="delete-sub-id">
+            <div class="modal-actions" style="flex-direction: column; gap: 10px;">
+                <button class="btn btn-confirm" style="background: var(--red-danger); color: white; width: 100%;" onclick="window.executeSubDelete()">نعم، احذف وأرجع المبلغ (إن وجد)</button>
+                <button class="btn btn-cancel" style="width: 100%;" onclick="document.getElementById('modal-delete-sub-warning').style.display='none'">تراجع وإلغاء</button>
+            </div>
+        </div>
+    </div>
+    <!-- نافذة تعديل الاشتراك الشاملة (تعديل معلومات + ترقية) -->
+    <div id="modal-edit-sub" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-title" style="color: #f39c12;"><i class="fa-solid fa-user-pen"></i> تعديل اشتراك الزبون</div>
+            <input type="hidden" id="edit-sub-id">
+            <div class="input-group">
+                <label>اسم الزبون</label>
+                <input type="text" id="edit-sub-name">
+            </div>
+            <div class="input-group">
+                <label>رقم الهاتف</label>
+                <input type="tel" id="edit-sub-phone">
+            </div>
+            <div class="input-group">
+                <label>نوع الفئة (الباقة)</label>
+                <select id="edit-sub-package" style="font-weight: bold; padding: 12px;"></select>
+            </div>
+            <div id="edit-sub-upgrade-warning" style="display:none; color:var(--green-success); margin-bottom:15px; text-align:center; font-weight:bold; background:rgba(46, 213, 115, 0.1); padding:10px; border-radius:8px; border:1px solid var(--green-success);">
+                سيتم سحب مبلغ كاش: <span id="edit-sub-diff" style="font-size:20px;">0</span> د.ع كفرق للترقية.
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" style="background:#f39c12; color:#fff;" onclick="window.saveEditedSub()">حفظ التعديلات</button>
+                <button class="btn btn-cancel" onclick="document.getElementById('modal-edit-sub').style.display='none'">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    <!-- 5. نافذة الآدمن لمشاهدة فواتير الزبون المشترك -->
+    <div id="modal-admin-sub-invoices" class="modal-overlay" style="z-index: 4000;">
+        <div class="modal-content invoices-list-modal" style="max-width: 800px;">
+            <div class="modal-title" style="color: var(--gold);"><i class="fa-solid fa-list"></i> الفواتير المسحوبة من الباقة</div>
+            <table class="invoices-table">
+                <thead><tr><th>التاريخ والوقت</th><th>رقم الفاتورة</th><th>المسحوب من الباقة</th><th>المدفوع كاش فرق</th><th>إجراء</th></tr></thead>
+                <tbody id="admin-sub-invoices-body"></tbody>
+            </table>
+            <div class="modal-actions"><button class="btn btn-cancel" style="width:100%" onclick="document.getElementById('modal-admin-sub-invoices').style.display='none'">إغلاق</button></div>
+        </div>
+    </div>
+    
+<!-- 16. نافذة التحديثات الهوائية (OTA Updates) - تضاف للتطبيق المكتبي -->
+    <div id="modal-ota-update" class="modal-overlay" style="z-index: 9999;">
+        <div class="modal-content" style="max-width: 450px; text-align: center; border-color: #4a90e2;">
+            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 70px; color: #4a90e2; margin-bottom: 20px; animation: pulse 1.5s infinite;"></i>
+            <div class="modal-title" style="color: #4a90e2; margin-bottom: 10px;">تحديث جديد متاح!</div>
+            <p id="ota-update-msg" style="font-size: 16px; margin-bottom: 25px; color: var(--text-white);">تم العثور على إصدار جديد من نظام مكوى رويال VIP. يحتوي التحديث على تحسينات هامة واستقرار أعلى. (سيتم إعادة تشغيل النظام تلقائياً بعد التحديث).</p>
+            <div class="modal-actions" style="flex-direction: column; gap: 15px;">
+                <button class="btn btn-confirm" style="background: #4a90e2; color: white; width: 100%; font-size:18px;" onclick="window.startOtaUpdate()">تحديث النظام الآن</button>
+                <button class="btn btn-cancel" style="width: 100%; background: transparent; border: 1px solid var(--text-gray);" onclick="document.getElementById('modal-ota-update').style.display='none'">تأجيل (ليس الآن)</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- استدعاء ملف الجافاسكريبت كـ Module لدعم Firebase -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>

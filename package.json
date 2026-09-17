@@ -1,0 +1,42 @@
+{
+  "name": "royal-pos",
+  "version": "1.0.0",
+  "description": "Royal Laundry POS System",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AliRazzak-22/royal-pos-desktop.git"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.8"
+  },
+  "devDependencies": {
+    "electron": "^29.1.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.royal.pos",
+    "productName": "مكوى رويال",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "AliRazzak-22",
+        "repo": "royal-pos-desktop"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": true
+    }
+  }
+}
