@@ -1,6 +1,6 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
-
 // تعطيل التحذيرات الأمنية المزعجة في بيئة التطوير
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
 
@@ -25,7 +25,7 @@ function createWindow() {
     mainWindow.loadFile('index.html');
 
 // فتح شاشة أدوات المطور (F12) برمجياً لكشف الأخطاء
-    mainWindow.webContents.openDevTools();
+    //mainWindow.webContents.openDevTools();
 
     // إظهار النافذة فقط بعد أن تكون جاهزة للعرض
     mainWindow.once('ready-to-show', () => {
@@ -39,9 +39,86 @@ function createWindow() {
     });
 }
 
-// عندما يكون Electron جاهزاً، قم بإنشاء النافذة
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    createWindow();
+    
+    // إعدادات رادار التحديثات (الحل الجذري)
+    autoUpdater.autoDownload = false; // يجب أن تكون false لكي يتحكم بها الكاشير يدوياً
+    autoUpdater.autoInstallOnAppQuit = true;
+    
+    // دالة آمنة لفحص التحديثات
+    const safeCheckForUpdates = () => {
+        try {
+            autoUpdater.checkForUpdates().catch(err => {
+                console.log('تجاهل فشل التحديث الصامت (Catch): ', err.message);
+            });
+        } catch (error) {
+            console.log('حدث خطأ أثناء فحص التحديثات (Try/Catch): ', error.message);
+        }
+    };
 
+    // فحص التحديثات بعد فتح النظام بـ 3 ثواني
+    setTimeout(safeCheckForUpdates, 3000); 
+    
+    // فحص دوري كل ساعة 
+    setInterval(safeCheckForUpdates, 60 * 60 * 1000);
+});
+
+// مضاد الصدمات الإضافي لمنع انهيار النظام
+process.on('unhandledRejection', (reason, promise) => {
+    console.log('Unhandled Rejection at:', promise, 'reason:', reason);
+    // تم اعتراض الخطأ ومنع الانهيار
+});
+
+// ----------------- أحداث رادار التحديثات (OTA) -----------------
+// 1. اكتشاف تحديث جديد وإخبار الكاشير
+autoUpdater.on('update-available', (info) => {
+    if(mainWindow) mainWindow.webContents.send('update-available', info);
+});
+
+// 2. استلام أمر "تحميل الآن" من الكاشير
+ipcMain.on('start-download', () => {
+    autoUpdater.downloadUpdate();
+});
+
+// 3. إرسال نسبة التحميل لشريط التقدم في الشاشة
+autoUpdater.on('download-progress', (progressObj) => {
+    if(mainWindow) mainWindow.webContents.send('download-progress', progressObj.percent);
+});
+
+// 4. التحديث اكتمل وجاهز للتثبيت
+autoUpdater.on('update-downloaded', () => {
+    if(mainWindow) mainWindow.webContents.send('update-ready');
+});
+
+// 5. استلام أمر التثبيت (يغلق النظام ويفتحه تلقائياً)
+ipcMain.on('install-update', () => {
+    try {
+        autoUpdater.quitAndInstall();
+    } catch (error) {
+        if (mainWindow) mainWindow.webContents.send('update-error', error.message);
+    }
+});
+// ---------------------------------------------------------------
+// 6. استلام أوامر القائمة الجانبية (إغلاق، تصغير، فحص تحديثات) من الكاشير
+ipcMain.on('close-app', () => {
+    app.quit();
+});
+
+ipcMain.on('minimize-app', () => {
+    if (mainWindow) mainWindow.minimize(); // ينزل التطبيق لشريط المهام (Taskbar)
+});
+
+ipcMain.on('manual-check-update', () => {
+    try {
+        // يجبر الرادار على فحص التحديثات فوراً استجابةً لطلب الكاشير
+        autoUpdater.checkForUpdates().catch(err => {
+            if(mainWindow) mainWindow.webContents.send('update-error', err.message);
+        });
+    } catch (error) {
+        if(mainWindow) mainWindow.webContents.send('update-error', error.message);
+    }
+});
 // إغلاق التطبيق تماماً عند إغلاق كل النوافذ
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') { // استثناء أجهزة الماك
@@ -54,7 +131,6 @@ app.on('activate', () => {
         createWindow();
     }
 });
-const { ipcMain } = require('electron');
 
 // استلام طلب الطباعة الصامتة من الكاشير
 ipcMain.on('print-silent', (event, htmlContent) => {

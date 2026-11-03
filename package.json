@@ -1,6 +1,6 @@
 {
   "name": "royal-pos",
-  "version": "1.0.0",
+  "version": "1.0.8",
   "description": "Royal Laundry POS System",
   "main": "main.js",
   "scripts": {
@@ -21,6 +21,7 @@
   "build": {
     "appId": "com.royal.pos",
     "productName": "مكوى رويال",
+    "artifactName": "royal-pos-setup-v${version}.${ext}",
     "publish": [
       {
         "provider": "github",

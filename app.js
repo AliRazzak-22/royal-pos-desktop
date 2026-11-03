@@ -1,7 +1,6 @@
 // استيراد مكتبات فايربيس مع تغليف دوال الرفع (rename) لبرمجة الصندوق الأسود
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
-import { getDatabase, ref as fbRef, set as fbSet, get, child, onValue, update as fbUpdate, remove as fbRemove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref as fbRef, set as fbSet, get, onValue, update as fbUpdate, remove as fbRemove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -16,7 +15,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 const database = getDatabase(app);
 const auth = getAuth(app);
 
@@ -117,7 +115,7 @@ let isTimeSynced = false;
 
 async function syncGlobalTime() {
     try {
-        const response = await fetch('http://worldtimeapi.org/api/timezone/Asia/Baghdad');
+        const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Baghdad');
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
         
@@ -194,23 +192,15 @@ window.escapeHTML = (str) => {
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[tag]));
 };
-// -----------------------------------------------------------------
-// --- التدخل الجراحي: الدالة المساعدة الآمنة لتوحيد التاريخ دون تشويه أساسيات اللغة ---
-window.formatRoyalDate = (dateObj) => {
-    // إذا لم يتم تمرير تاريخ، نستخدم الوقت العالمي المحمي الذي برمجناه في الخطوة السابقة
-    if(!dateObj) return getRealTime().date; 
-    
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
 // -----------------------------------------------------------------------
 const availableIcons = [
     'fa-shirt', 'fa-user-tie', 'fa-person-dress', 'fa-user-nurse', 'fa-person-military-rifle',
     'fa-user-secret', 'fa-user-doctor', 'fa-person', 'fa-socks', 'fa-mitten', 
     'fa-hat-cowboy', 'fa-graduation-cap', 'fa-baby-carriage', 'fa-bed', 'fa-rug',
-    'fa-mattress-pillow', 'fa-towel', 'fa-bag-shopping', 'fa-shoe-prints'
+    'fa-mattress-pillow', 'fa-towel', 'fa-bag-shopping', 'fa-shoe-prints',
+    'fa-vest', 'fa-child-dress', 'fa-briefcase', 'fa-scissors', 'fa-crown', 'fa-car',
+    'fa-motorcycle', 'fa-campground', 'fa-layer-group', 'fa-couch', 'fa-chair',
+    'fa-puzzle-piece', 'fa-umbrella', 'fa-glasses', 'fa-ring', 'fa-vest-patches'
 ];
 
 // دالة جلب البيانات من السحابة عند تشغيل النظام
@@ -275,7 +265,6 @@ async function initializeDB() {
             
             // في أول تشغيل للنظام فقط
             if (isFirstLoad) {
-                if(window.loadInvoiceTemplateToEditor) window.loadInvoiceTemplateToEditor();
                 const loadingScreen = document.getElementById('loading-screen');
                 if (loadingScreen) loadingScreen.style.display = 'none';
                 isFirstLoad = false;
@@ -312,13 +301,27 @@ async function initializeDB() {
         
         // --- استرجاع حالة الشاشة والتبويب بعد التحديث (الرفرش) ---
         const savedScreen = sessionStorage.getItem('active_screen');
+        const isMobileDevice = document.documentElement.classList.contains('is-mobile');
+
         if (savedScreen === 'pos') {
             window.showPOS();
         } else if (savedScreen === 'admin') {
             // التدخل الجراحي: منع الدخول التلقائي للآدمن لحماية البيانات
             sessionStorage.removeItem('active_screen'); 
-            document.getElementById('main-screen').style.display = 'flex';
+            
+            if (isMobileDevice) {
+                document.getElementById('main-screen').style.display = 'none';
+                window.openAdminLogin();
+            } else {
+                document.getElementById('main-screen').style.display = 'flex';
+            }
             window.showAlert('تم إنهاء جلسة الآدمن لدواعي أمنية. يرجى تسجيل الدخول مجدداً.', 'warning');
+        } else {
+            // التوجيه الذكي الفوري: إذا فتح الرابط من الجوال لأول مرة
+            if (isMobileDevice) {
+                document.getElementById('main-screen').style.display = 'none';
+                window.openAdminLogin();
+            }
         }
     } catch (error) {
         console.error("Firebase Error:", error);
@@ -422,6 +425,8 @@ function saveDataToCloud() {
         updates['royal_data/settings/name'] = localData.settings.name;
         updates['royal_data/settings/phone'] = localData.settings.phone;
         updates['royal_data/settings/address'] = localData.settings.address;
+        if(localData.settings.invoiceTemplate) updates['royal_data/settings/invoiceTemplate'] = localData.settings.invoiceTemplate;
+        if(localData.settings.shiftTemplate) updates['royal_data/settings/shiftTemplate'] = localData.settings.shiftTemplate;
     }
 
     update(ref(database), updates).then(() => {
@@ -448,8 +453,41 @@ window.logAction = (actionType, details, amount = 0, snapshot = null) => {
     };
     localData.logs.push(newLog);
     import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
-        set(ref(window.db || database, 'royal_data/logs/' + newLog.id), newLog);
+        set(ref(database, 'royal_data/logs/' + newLog.id), newLog);
     });
+};
+// ==========================================
+// --- برمجة قائمة الهامبرغر الجانبية ---
+// ==========================================
+window.toggleHamburgerMenu = () => {
+    document.getElementById('hamburger-menu').classList.toggle('show');
+};
+
+// إغلاق القائمة تلقائياً إذا ضغط الكاشير في أي مكان فارغ بالشاشة
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('hamburger-menu');
+    if (menu && menu.classList.contains('show') && !e.target.closest('.dropdown-wrapper')) {
+        menu.classList.remove('show');
+    }
+});
+
+// أمر تصغير الشاشة لسطح المكتب
+window.minimizeApp = () => {
+    document.getElementById('hamburger-menu').classList.remove('show');
+    if (typeof require !== 'undefined') {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.send('minimize-app');
+    }
+};
+
+// أمر البحث اليدوي عن تحديثات
+window.manualCheckForUpdates = () => {
+    document.getElementById('hamburger-menu').classList.remove('show');
+    window.showAlert('جاري البحث عن تحديثات في السحابة... ⏳', 'warning');
+    if (typeof require !== 'undefined') {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.send('manual-check-update');
+    }
 };
 // ---------------- الأزرار العامة ----------------
 window.showPOS = () => { 
@@ -474,7 +512,14 @@ window.exitToMain = () => {
     sessionStorage.removeItem('active_screen'); // تفريغ الذاكرة
     sessionStorage.removeItem('admin_tab');
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen')); 
-    document.getElementById('main-screen').style.display = 'flex'; 
+    
+    // التوجيه الذكي: عند الخروج من الجوال لا ترجع لشاشة البداية أبداً!
+    if (window.innerWidth <= 768 || /iPhone|Android|webOS/i.test(navigator.userAgent)) {
+        document.getElementById('main-screen').style.display = 'none';
+        window.openAdminLogin();
+    } else {
+        document.getElementById('main-screen').style.display = 'flex'; 
+    }
     
     // --- إلغاء ملء الشاشة وتحرير الشاشة عند الخروج للرئيسية ---
     if(document.fullscreenElement && document.exitFullscreen) {
@@ -485,23 +530,23 @@ window.exitToMain = () => {
     }
 };
 
-// --- دالة ملء الشاشة المتطورة للكاشير ---
-window.toggleFullScreen = () => {
-    const btnIcon = document.querySelector('#fullscreen-btn i');
-    if (!document.fullscreenElement) { 
-        document.documentElement.requestFullscreen().catch(err => console.log(err));
-        if(btnIcon) { btnIcon.classList.remove('fa-expand'); btnIcon.classList.add('fa-compress'); }
-    } else { 
-        if (document.exitFullscreen) { document.exitFullscreen(); }
-        if(btnIcon) { btnIcon.classList.remove('fa-compress'); btnIcon.classList.add('fa-expand'); }
-    }
+// --- دالة إغلاق النظام بأمان للكاشير ---
+window.confirmCloseApp = () => {
+    window.showConfirm('هل أنت متأكد أنك تريد إغلاق النظام بالكامل؟ (سيتم حفظ كل شيء)', () => {
+        if (typeof require !== 'undefined') {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.send('close-app');
+        }
+    }, '<i class="fa-solid fa-power-off"></i> تأكيد الإغلاق', 'نعم، أغلق النظام');
 };
 // ----------------------------------------
 window.openAdminLogin = () => { document.getElementById('modal-admin-login').style.display = 'flex'; };
 window.closeModals = () => { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); };
 // ---------------- نظام رسائل التأكيد المخصصة ----------------
 let pendingConfirmAction = null;
-window.showConfirm = (msg, actionCallback) => {
+window.showConfirm = (msg, actionCallback, title = 'تأكيد الحذف', btnText = 'نعم، احذف نهائياً') => {
+    document.getElementById('custom-confirm-title').innerHTML = title;
+    document.getElementById('custom-confirm-btn').innerHTML = btnText;
     document.getElementById('custom-confirm-msg').innerText = msg;
     pendingConfirmAction = actionCallback;
     document.getElementById('modal-custom-confirm').style.display = 'flex';
@@ -532,52 +577,64 @@ window.checkAdminPassword = () => {
         }
     });
 };
-// ---------------- نظام التنبيهات الذكي (بديل المتصفح) ----------------
+// ---------------- نظام الإشعارات المنزلقة (Toast Notifications) ----------------
 window.showAlert = (msg, type = 'warning') => {
-    const iconContainer = document.getElementById('alert-icon-container');
-    const titleContainer = document.getElementById('alert-title');
-    
-    iconContainer.className = 'pop-animate'; // تشغيل الحركة
-    titleContainer.className = '';
+    const container = document.getElementById('toast-container');
+    if (!container) return;
 
-    if (type === 'success') {
-        iconContainer.innerHTML = '<i class="fa-solid fa-circle-check text-success"></i>';
-        titleContainer.innerText = 'نجاح';
-        titleContainer.classList.add('text-success');
-    } else if (type === 'error') {
-        iconContainer.innerHTML = '<i class="fa-solid fa-circle-xmark text-danger"></i>';
-        titleContainer.innerText = 'خطأ';
-        titleContainer.classList.add('text-danger');
-    } else {
-        iconContainer.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-warning"></i>';
-        titleContainer.innerText = 'تنبيه';
-        titleContainer.classList.add('text-warning');
-    }
+    const toast = document.createElement('div');
+    toast.className = `toast-msg toast-${type}`;
 
-    document.getElementById('alert-message').innerText = msg;
-    document.getElementById('modal-custom-alert').style.display = 'flex';
+    let icon = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    if (type === 'success') icon = '<i class="fa-solid fa-circle-check"></i>';
+    if (type === 'error') icon = '<i class="fa-solid fa-circle-xmark"></i>';
+
+    toast.innerHTML = `
+        ${icon}
+        <span>${msg}</span>
+        <div class="toast-progress"></div>
+    `;
+
+    // إضافة الإشعار للحاوية
+    container.appendChild(toast);
+
+    // إزالة الإشعار بعد 3 ثواني مع حركة خروج ناعمة
+    setTimeout(() => {
+        toast.style.animation = 'slideOutLeft 0.4s forwards';
+        setTimeout(() => {
+            if (container.contains(toast)) container.removeChild(toast);
+        }, 400); // الانتظار حتى تنتهي حركة الخروج
+    }, 3000);
 };
 
-window.closeAlertModal = () => {
-    document.getElementById('modal-custom-alert').style.display = 'none';
-    document.getElementById('alert-icon-container').className = ''; // إعادة تهيئة الحركة
-};
-
-// 🔴 السحر المطور: أي خطأ برمجي سيظهر كخطأ أحمر، ورسائل النجاح نحددها برمجياً
+// 🔴 توجيه الـ alert الافتراضي ليعمل كـ Toast
 window.alert = (msg) => {
     window.showAlert(msg, 'error'); 
 };
 
 // ---------------- بناء الواجهة (الخلايا) ----------------
-function renderItems() {
+let sortableInstance = null; 
+
+window.renderItems = () => {
     const grid = document.getElementById('items-grid');
-    if(!grid) return; // حماية إضافية
+    if(!grid) return;
+    
+    if (sortableInstance) sortableInstance.destroy();
+    
     grid.innerHTML = '';
     if(localData.catalog) {
-        localData.catalog.forEach(item => {
+        localData.catalog.forEach((item, index) => {
             const cell = document.createElement('div');
             cell.className = 'item-cell';
-            cell.onclick = () => window.openServiceModal(item);
+            cell.setAttribute('data-id', item.id); 
+            cell.style.setProperty('--i', index % 4); 
+            
+            cell.onclick = (e) => {
+                // منع النقر إذا كان العنصر يُسحب حالياً
+                if(grid.classList.contains('grid-dragging')) return;
+                window.openServiceModal(item);
+            };
+            
             cell.innerHTML = `
                 <i class="fa-solid ${item.icon} item-icon"></i>
                 <div class="item-name">${item.name}</div>
@@ -585,14 +642,57 @@ function renderItems() {
             grid.appendChild(cell);
         });
     }
-}
+
+    if (typeof Sortable !== 'undefined') {
+        sortableInstance = new Sortable(grid, {
+            animation: 350,
+            delay: 250, 
+            delayOnTouchOnly: true, // مهم: تأخير فقط على شاشات اللمس. الماوس يعمل فوراً ويسحب أسهل.
+            touchStartThreshold: 3, // سماحية صغيرة للحركة قبل تفعيل السحب (يمنع السحب الخاطئ عند التمرير)
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            chosenClass: 'sortable-chosen',
+            forceFallback: true, // إجبار المكتبة على استخدام محركها الخاص للحركة بدلاً من محرك المتصفح الافتراضي (وهذا سر النعومة)
+            fallbackClass: 'sortable-drag', 
+            fallbackTolerance: 3, // يجب تحريك الماوس 3 بكسلات لتبدأ الحركة، لتجنب النقر المزدوج
+            
+            onStart: function (evt) {
+                grid.classList.add('grid-dragging'); 
+                if(navigator.vibrate) navigator.vibrate(50);
+            },
+            onEnd: function (evt) {
+                // تأخير بسيط جداً لإزالة كلاس grid-dragging للسماح بانتهاء النقر دون فتح النافذة المزعج
+                setTimeout(() => {
+                    grid.classList.remove('grid-dragging');
+                }, 100);
+                
+                if(navigator.vibrate) navigator.vibrate([30, 50, 30]); 
+                
+                const newOrderIds = Array.from(grid.children).map(el => el.getAttribute('data-id'));
+                const newCatalog = [];
+                
+                newOrderIds.forEach(id => {
+                    const found = localData.catalog.find(i => i.id === id);
+                    if(found) newCatalog.push(found);
+                });
+                
+                localData.catalog = newCatalog;
+                saveDataToCloud(); 
+            }
+        });
+    }
+};
+
+// جسر توافق للدوال القديمة التي تستدعي renderItems بدون window
+function renderItems() { window.renderItems(); }
 
 // ---------------- إضافة/تعديل/حذف خدمة (الكتالوج) ----------------
 window.openAddServiceModal = () => {
     document.getElementById('new-srv-name').value = '';
     document.getElementById('new-srv-price-wash').value = '';
     document.getElementById('new-srv-price-iron').value = '';
-    
+    document.getElementById('new-srv-price-wash-only').value = '';
+
     const iconGrid = document.getElementById('icon-picker');
     iconGrid.innerHTML = '';
     availableIcons.forEach(icon => {
@@ -615,15 +715,22 @@ window.openAddServiceModal = () => {
 window.saveNewService = () => {
     const name = document.getElementById('new-srv-name').value;
     const icon = document.getElementById('new-srv-icon').value;
-    const priceWash = parseFloat(document.getElementById('new-srv-price-wash').value);
-    const priceIron = parseFloat(document.getElementById('new-srv-price-iron').value);
+    
+    // سحب القيم وإعطاء 0 كقيمة افتراضية
+    const priceWash = parseFloat(document.getElementById('new-srv-price-wash').value) || 0;
+    const priceIron = parseFloat(document.getElementById('new-srv-price-iron').value) || 0;
+    const priceWashOnly = parseFloat(document.getElementById('new-srv-price-wash-only').value) || 0;
 
-    if(!name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال البيانات بشكل صحيح.');
+    // التأكد من كتابة الاسم على الأقل
+    if(!name) return alert('الرجاء إدخال اسم القطعة');
+    if(priceWash === 0 && priceIron === 0 && priceWashOnly === 0) return alert('يجب تسعير خدمة واحدة على الأقل!');
 
     const newItem = {
         id: 'item_' + Date.now(),
-        name: name, icon: icon,
-        prices: { wash_iron: priceWash, iron_only: priceIron }
+        name: name, 
+        icon: icon,
+        // هنا تم وضع الأسعار في مكانها الصحيح داخل الكائن
+        prices: { wash_iron: priceWash, iron_only: priceIron, wash_only: priceWashOnly }
     };
 
     localData.catalog.push(newItem);
@@ -637,9 +744,16 @@ window.openEditServiceModal = () => {
     const select = document.getElementById('edit-srv-select');
     select.innerHTML = '<option value="" disabled selected>-- اختر الخدمة --</option>';
     localData.catalog.forEach(item => { select.innerHTML += `<option value="${item.id}">${item.name}</option>`; });
+    
     document.getElementById('edit-srv-name').value = '';
     document.getElementById('edit-srv-price-wash').value = '';
     document.getElementById('edit-srv-price-iron').value = '';
+    document.getElementById('edit-srv-price-wash-only').value = '';
+    
+    // تفريغ شبكة الأيقونات بانتظار اختيار خدمة ليتم تحديد الأيقونة المناسبة
+    document.getElementById('edit-icon-picker').innerHTML = '';
+    document.getElementById('edit-srv-icon').value = '';
+
     document.getElementById('modal-edit-service').style.display = 'flex';
 };
 
@@ -648,24 +762,57 @@ window.loadServiceToEdit = () => {
     const item = localData.catalog.find(i => i.id === id);
     if(item) {
         document.getElementById('edit-srv-name').value = item.name;
-        document.getElementById('edit-srv-price-wash').value = item.prices.wash_iron;
-        document.getElementById('edit-srv-price-iron').value = item.prices.iron_only;
+        document.getElementById('edit-srv-price-wash').value = item.prices.wash_iron || 0;
+        document.getElementById('edit-srv-price-iron').value = item.prices.iron_only || 0;
+        document.getElementById('edit-srv-price-wash-only').value = item.prices.wash_only || 0;
+        
+        // جلب الأيقونة الحالية للخدمة (وإذا لم تكن موجودة نعطيها افتراضي)
+        const currentIcon = item.icon || 'fa-shirt';
+        document.getElementById('edit-srv-icon').value = currentIcon;
+        
+        // رسم شبكة الأيقونات وتحديد الأيقونة الحالية
+        const iconGrid = document.getElementById('edit-icon-picker');
+        iconGrid.innerHTML = '';
+        availableIcons.forEach(icon => {
+            const iDiv = document.createElement('div');
+            iDiv.className = 'icon-option';
+            if (icon === currentIcon) iDiv.classList.add('selected'); // تحديد الأيقونة الحالية
+            
+            iDiv.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+            iDiv.onclick = function() {
+                // إزالة التحديد عن الكل
+                document.querySelectorAll('#edit-icon-picker .icon-option').forEach(el => el.classList.remove('selected'));
+                // تحديد العنصر المختار
+                this.classList.add('selected');
+                // حفظ اسم الأيقونة في الحقل المخفي
+                document.getElementById('edit-srv-icon').value = icon;
+            };
+            iconGrid.appendChild(iDiv);
+        });
     }
 };
 
 window.saveEditedService = () => {
     const id = document.getElementById('edit-srv-select').value;
     const name = document.getElementById('edit-srv-name').value;
-    const priceWash = parseFloat(document.getElementById('edit-srv-price-wash').value);
-    const priceIron = parseFloat(document.getElementById('edit-srv-price-iron').value);
+    const newIcon = document.getElementById('edit-srv-icon').value; // جلب الأيقونة المحددة
+    
+    // سحب القيم وإعطاء 0 كقيمة افتراضية إذا كان الحقل فارغاً
+    const priceWash = parseFloat(document.getElementById('edit-srv-price-wash').value) || 0;
+    const priceIron = parseFloat(document.getElementById('edit-srv-price-iron').value) || 0;
+    const priceWashOnly = parseFloat(document.getElementById('edit-srv-price-wash-only').value) || 0;
 
-    if(!id || !name || isNaN(priceWash) || isNaN(priceIron)) return alert('الرجاء إدخال البيانات بشكل صحيح');
+    if(!id || !name) return alert('الرجاء اختيار الخدمة وتحديد الاسم');
+    if(priceWash === 0 && priceIron === 0 && priceWashOnly === 0) return alert('يجب تسعير خدمة واحدة على الأقل!');
 
     const index = localData.catalog.findIndex(i => i.id === id);
     if(index > -1) {
         localData.catalog[index].name = name;
+        localData.catalog[index].icon = newIcon; // حفظ الأيقونة الجديدة
         localData.catalog[index].prices.wash_iron = priceWash;
         localData.catalog[index].prices.iron_only = priceIron;
+        localData.catalog[index].prices.wash_only = priceWashOnly;
+        
         saveDataToCloud();
         renderItems();
         window.closeModals();
@@ -696,15 +843,45 @@ window.confirmDeleteService = () => {
 // ---------------- نظام السلة (الـ Cart) ----------------
 window.openServiceModal = (item) => {
     pendingItem = item;
+    
+    // سحب الأسعار وتحويل الفراغ إلى صفر
+    let pWashIron = item.prices.wash_iron || 0;
+    let pIronOnly = item.prices.iron_only || 0;
+    let pWashOnly = item.prices.wash_only || 0;
+
+    let available = [];
+    if(pWashIron > 0) available.push('wash_iron');
+    if(pIronOnly > 0) available.push('iron_only');
+    if(pWashOnly > 0) available.push('wash_only');
+
+    // السحر هنا: إذا توفرت خدمة واحدة فقط، نضيفها فوراً ونتخطى النافذة المزعجة!
+    if(available.length === 1) {
+        window.addToCartSelected(available[0]);
+        return;
+    } else if(available.length === 0) {
+        return window.showAlert('عذراً، هذه القطعة لا تحتوي على خدمات مسعرة!', 'error');
+    }
+
     document.getElementById('service-item-name').innerText = item.name;
-    document.getElementById('price-wash').innerText = item.prices.wash_iron.toLocaleString() + ' د.ع';
-    document.getElementById('price-iron').innerText = item.prices.iron_only.toLocaleString() + ' د.ع';
+
+    const btnWashIron = document.getElementById('btn-sel-wash-iron');
+    const btnIron = document.getElementById('btn-sel-iron');
+    const btnWash = document.getElementById('btn-sel-wash-only');
+
+    // إظهار فقط الأزرار التي تمتلك سعراً أكبر من صفر
+    if(pWashIron > 0) { btnWashIron.style.display = 'flex'; document.getElementById('price-wash').innerText = pWashIron.toLocaleString() + ' د.ع'; } else btnWashIron.style.display = 'none';
+    if(pIronOnly > 0) { btnIron.style.display = 'flex'; document.getElementById('price-iron').innerText = pIronOnly.toLocaleString() + ' د.ع'; } else btnIron.style.display = 'none';
+    if(pWashOnly > 0) { btnWash.style.display = 'flex'; document.getElementById('price-wash-only-val').innerText = pWashOnly.toLocaleString() + ' د.ع'; } else btnWash.style.display = 'none';
+
     document.getElementById('modal-service').style.display = 'flex';
 };
 
 window.addToCartSelected = (serviceType) => {
     const price = pendingItem.prices[serviceType];
-    const serviceName = serviceType === 'wash_iron' ? 'غسيل وكوي' : 'كوي فقط';
+    let serviceName = '';
+    if (serviceType === 'wash_iron') serviceName = 'غسيل وكوي';
+    else if (serviceType === 'iron_only') serviceName = 'كوي فقط';
+    else if (serviceType === 'wash_only') serviceName = 'غسيل فقط';
     
     const existing = currentCart.find(i => i.id === pendingItem.id && i.service === serviceType);
     if(existing) existing.qty += 1;
@@ -721,14 +898,100 @@ window.decreaseQty = (index) => {
     else { window.removeCartItem(index); }
 };
 
-function renderCart() {
+// دالة التحكم بأسهم الخصم (بمضاعفات 250) مع تأثير العداد المزدوج
+window.adjustDiscount = (amount) => {
+    const discountInput = document.getElementById('cart-discount');
+    if (!discountInput) return;
+    
+    const subTotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    
+    // الحماية 1: منع الاستخدام والسلة فارغة
+    if (subTotal === 0) {
+        discountInput.value = ''; 
+        return window.showAlert('أضف قطعاً للسلة أولاً قبل وضع الخصم!', 'warning');
+    }
+
+    let startVal = parseFloat(discountInput.value) || 0;
+    let endVal = startVal + amount;
+    
+    if (endVal < 0) endVal = 0;
+    
+    // الحماية 2: إيقاف الخصم عند وصوله لمبلغ القائمة
+    if (endVal > subTotal) {
+        endVal = subTotal;
+        window.showAlert('وصلت للحد الأقصى! لا يمكن تجاوز مبلغ القائمة.', 'warning');
+    }
+    
+    if (startVal === endVal) return; // لا حاجة للحركة إذا لم يتغير شيء
+
+    // حساب المجموع القديم والجديد لعمل تأثير حركي متزامن للطرفين
+    const startTotal = Math.max(0, subTotal - startVal);
+    const endTotal = Math.max(0, subTotal - endVal);
+    const totalNumEl = document.getElementById('cart-total-num');
+    const totalWrapperEl = document.getElementById('cart-total-wrapper');
+
+    // نبضة بصرية للمربع الأحمر لتأكيد النقر
+    discountInput.style.transform = 'scale(1.08)';
+    
+    // نبضة للمجموع
+    if (totalWrapperEl) {
+        totalWrapperEl.classList.remove('bump', 'drop'); 
+        void totalWrapperEl.offsetWidth; 
+        totalWrapperEl.classList.add(endTotal > startTotal ? 'bump' : 'drop');
+    }
+
+    // إيقاف أي أنيميشن سابق في الحقل
+    if (discountInput.animFrame) cancelAnimationFrame(discountInput.animFrame);
+    
+    let startTimestamp = null;
+    const duration = 250; // ربع ثانية ليكون سريعاً ومريحاً للعين
+    
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        
+        let currDiscount = Math.floor(progress * (endVal - startVal) + startVal);
+        let currTotal = Math.floor(progress * (endTotal - startTotal) + startTotal);
+        
+        // تحديث الحقلين لحظياً (تأثير العداد السريع)
+        discountInput.value = currDiscount;
+        if (totalNumEl) totalNumEl.innerText = currTotal.toLocaleString();
+        
+        if (progress < 1) {
+            discountInput.animFrame = window.requestAnimationFrame(step);
+        } else {
+            // الوصول للنهاية بدقة
+            discountInput.value = endVal;
+            if (totalNumEl) totalNumEl.innerText = endTotal.toLocaleString();
+            
+            // إعادة الحقل لشكله الطبيعي
+            discountInput.style.transform = 'scale(1)';
+            if (totalWrapperEl) setTimeout(() => totalWrapperEl.classList.remove('bump', 'drop'), 50);
+            
+            // حفظ البيانات الرسمية لكي لا تضيع إذا انطفأت الحاسبة فجأة
+            window.lastCartTotal = endTotal;
+            localStorage.setItem('cart_draft', JSON.stringify(currentCart));
+            delete discountInput.animFrame;
+        }
+    };
+    discountInput.animFrame = window.requestAnimationFrame(step);
+};
+
+window.renderCart = () => {
     const tbody = document.getElementById('cart-items');
+    if (!tbody) return;
     tbody.innerHTML = '';
-    let total = 0;
+    
+    let subTotal = 0;
+    
+    // 1. حساب المنتجات والمجموع الفرعي
     currentCart.forEach((item, index) => {
         const itemTotal = item.price * item.qty;
-        total += itemTotal;
-        const serviceClass = item.service === 'wash_iron' ? 'srv-wash-iron' : 'srv-iron';
+        subTotal += itemTotal;
+        let serviceClass = 'srv-iron';
+        if(item.service === 'wash_iron') serviceClass = 'srv-wash-iron';
+        else if(item.service === 'wash_only') serviceClass = 'srv-wash-only';
+
         tbody.innerHTML += `
             <tr>
                 <td>${index + 1}</td>
@@ -748,9 +1011,75 @@ function renderCart() {
             </tr>
         `;
     });
-    document.getElementById('cart-total-val').innerText = total.toLocaleString() + ' د.ع';
+    
+    // 2. حساب الخصم وقفل الحماية الذكي
+    const discountInput = document.getElementById('cart-discount');
+    let discountVal = 0;
+    if (discountInput && discountInput.value) {
+        discountVal = parseFloat(discountInput.value) || 0;
+    }
+    
+    // فلتر 1: منع إضافة أي خصم إذا كانت السلة فارغة
+    if (subTotal === 0 && discountVal > 0) {
+        discountVal = 0;
+        if (discountInput) discountInput.value = '';
+        window.showAlert('السلة فارغة! أضف قطعاً أولاً.', 'error');
+    }
+    // فلتر 2: منع الخصم من تجاوز إجمالي مبلغ القائمة
+    else if (discountVal > subTotal && subTotal > 0) {
+        discountVal = subTotal;
+        if (discountInput) discountInput.value = subTotal;
+        window.showAlert('لا يمكن أن يتجاوز الخصم مبلغ القائمة الكلي!', 'error');
+    }
+    
+    // فلتر الحماية: منع الخصم من تجاوز قيمة السلة عند الكتابة اليدوية
+    if (discountVal > subTotal && subTotal > 0) {
+        discountVal = subTotal;
+        if (discountInput) discountInput.value = subTotal;
+        window.showAlert('لا يمكن أن يتجاوز الخصم مبلغ القائمة الكلي!', 'error');
+    }
+
+    // 3. المبلغ الكلي النهائي
+    let total = Math.max(0, subTotal - discountVal);
+
+    // 4. تحديث واجهة الكاشير (تأثير العداد السريع للأرقام)
+    if(document.getElementById('cart-subtotal-val')) {
+        document.getElementById('cart-subtotal-val').innerText = subTotal.toLocaleString() + ' د.ع';
+    }
+    
+    const totalNumEl = document.getElementById('cart-total-num');
+    const totalWrapperEl = document.getElementById('cart-total-wrapper');
+    
+    if (totalNumEl) {
+        let prevTotal = window.lastCartTotal || 0;
+        
+        if (total !== prevTotal) {
+            // تفعيل محرك (تتصاعد وتتنازل الأرقام كعداد)
+            if (typeof animateValue === 'function') {
+                animateValue(totalNumEl, prevTotal, total, 350); // 350 جزء من الثانية لدوران الأرقام
+            } else {
+                totalNumEl.innerText = total.toLocaleString();
+            }
+            
+            // التأثير النبضي المتوهج للصندوق بالتزامن مع العداد
+            if (totalWrapperEl) {
+                totalWrapperEl.classList.remove('bump', 'drop'); 
+                void totalWrapperEl.offsetWidth; 
+                totalWrapperEl.classList.add(total > prevTotal ? 'bump' : 'drop');
+                setTimeout(() => totalWrapperEl.classList.remove('bump', 'drop'), 350);
+            }
+            window.lastCartTotal = total;
+        } else if (prevTotal === 0 && total === 0) {
+            totalNumEl.innerText = "0";
+        }
+    }
+    
+    // حفظ السلة مؤقتاً في حالة انقطاع الكهرباء
     localStorage.setItem('cart_draft', JSON.stringify(currentCart));
-}
+};
+
+// ولكي لا تتعطل باقي الدوال التي كانت تستدعي الاسم القديم بدون window، نضيف هذا السطر كجسر:
+function renderCart() { window.renderCart(); }
 
 function generateInvoiceID() {
     return 'ROYAL-' + Math.random().toString(36).substr(2, 4).toUpperCase() + Date.now().toString().slice(-4);
@@ -791,29 +1120,29 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// دالة حساب الرقم التسلسلي (تصفير تلقائي كل 3 أيام)
+// دالة حساب الرقم التسلسلي (تصفير تلقائي كل 15 أيام)
 function getNextDailyNumber() {
     const MS_PER_DAY = 1000 * 60 * 60 * 24;
     const epoch = new Date('2024-01-01T00:00:00').getTime();
     const now = Date.now();
     
-    // حساب دورة الـ 3 أيام الحالية
+    // حساب دورة الـ 15 أيام الحالية
     const currentDays = Math.floor((now - epoch) / MS_PER_DAY);
-    const currentCycle = Math.floor(currentDays / 3);
+    const currentCycle = Math.floor(currentDays / 15);
     
     let maxNumber = 0;
     
-    // التدخل الجراحي: جدار زمني لفلترة الفواتير (نبحث في آخر 4 أيام فقط)
+    // التدخل الجراحي: جدار زمني لفلترة الفواتير (نبحث في آخر 30 يوماً فقط)
     // هذا سيمنع المعالج من فحص آلاف الفواتير القديمة!
-    const timeBarrier = now - (4 * MS_PER_DAY);
+    const timeBarrier = now - (30 * MS_PER_DAY);
     
     (localData.invoices || []).forEach(inv => {
-        // فلتر الأمان: إذا كانت الفاتورة أقدم من 4 أيام، نتجاوزها فوراً بدون عمليات رياضية
+        // فلتر الأمان: إذا كانت الفاتورة أقدم من 30 يوماً، نتجاوزها فوراً بدون عمليات رياضية
         if (inv.dailyNumber && inv.timestamp && inv.timestamp >= timeBarrier) {
             const invDays = Math.floor((inv.timestamp - epoch) / MS_PER_DAY);
-            const invCycle = Math.floor(invDays / 3);
+            const invCycle = Math.floor(invDays / 15);
             
-            // إذا كانت الفاتورة السابقة ضمن نفس دورة الـ 3 أيام، ننافس على أعلى رقم
+            // إذا كانت الفاتورة السابقة ضمن نفس دورة الـ 15 يوماً، ننافس على أعلى رقم
             if (invCycle === currentCycle && inv.dailyNumber > maxNumber) {
                 maxNumber = inv.dailyNumber;
             }
@@ -830,16 +1159,27 @@ window.confirmOrder = () => {
     const newDeposit = parseFloat(document.getElementById('checkout-deposit').value) || 0;
     
     if(!name) return window.showAlert('يرجى إدخال اسم الزبون.', 'warning');
-    const total = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    if(newDeposit > total) return window.showAlert('العربون أكبر من المجموع الكلي!', 'error');
+    
+    // حساب المجموع الفرعي والخصم والمبلغ الكلي
+    const subTotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const discountVal = parseFloat(document.getElementById('cart-discount').value) || 0;
+    const total = Math.max(0, subTotal - discountVal);
+    
+    if(newDeposit > total) return window.showAlert('العربون أكبر من المبلغ الكلي!', 'error');
 
     // === حالة (تعديل طلب موجود) ===
     if (editingInvoiceId) {
         const index = localData.invoices.findIndex(i => i.id === editingInvoiceId);
         const oldInv = localData.invoices[index];
         const oldDeposit = oldInv.customer ? oldInv.customer.paid : 0;
+
+        // لقطة قبل الكتابة فوق الملاحظات واسم الزبون، لأن منها نعرف إن كانت الفاتورة على باقة VIP
+        const vipSnapshot = {
+            wasVip: oldInv.paymentType === 'subscription' || oldInv.paymentType === 'mixed' || !!(oldInv.notes && oldInv.notes.includes('VIP')),
+            ownerName: oldInv.customer ? (oldInv.customer.name || '') : ''
+        };
         
-        // القاعدة المالية: إذا تغير العربون، نعدل الصندوق لليوم الحالي حصراً (الفرق بين القديم والجديد)
+        // القاعدة المالية: إذا تغير العربون، نعدل الصندوق لليوم الحالي حصراً
         const depositDifference = newDeposit - oldDeposit;
         if (depositDifference !== 0 && getRealTime().date === oldInv.date) {
             localData.dailySalesCash += depositDifference;
@@ -847,16 +1187,24 @@ window.confirmOrder = () => {
 
         localData.invoices[index].items = [...currentCart];
         localData.invoices[index].total = total;
+        localData.invoices[index].subTotal = subTotal;
+        localData.invoices[index].discount = discountVal;
         localData.invoices[index].notes = document.getElementById('cart-notes').value;
         localData.invoices[index].customer = { name, phone, pickupDate, pickupTime, paid: newDeposit, remaining: total - newDeposit };
+
+        // إعادة موازنة باقة VIP إن كانت الفاتورة مدفوعة منها، ثم تُكتب النتيجة مع الفاتورة
+        window.rebalanceVipOnEdit(localData.invoices[index], total, vipSnapshot);
 
         window.logAction('تعديل طلب', `تعديل طلب رقم: ${oldInv.dailyNumber || oldInv.id}`, total, { oldInvoice: oldInv, newCart: currentCart });
         
         // تحديث السحابة
         update(ref(database, 'royal_data/invoices/' + editingInvoiceId), {
             items: localData.invoices[index].items,
-            total: total,
+            total: localData.invoices[index].total,
+            subTotal: localData.invoices[index].subTotal,
+            discount: localData.invoices[index].discount,
             notes: localData.invoices[index].notes,
+            paymentType: localData.invoices[index].paymentType,
             customer: localData.invoices[index].customer
         });
         
@@ -876,11 +1224,13 @@ window.confirmOrder = () => {
             id: generateInvoiceID(), 
             dailyNumber: dailyNum,
             date: realT.date, 
-            time: realT.time,
+            time: realT.time, 
             timestamp: realT.timestamp, 
             type: 'active',
             items: [...currentCart], 
             total: total,
+            subTotal: subTotal,
+            discount: discountVal,
             notes: document.getElementById('cart-notes').value, 
             customer: { name, phone, pickupDate, pickupTime, paid: newDeposit, remaining: total - newDeposit }
         };
@@ -891,16 +1241,76 @@ window.confirmOrder = () => {
         window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, newDeposit, invoice);
         set(ref(database, 'royal_data/invoices/' + invoice.id), invoice);
         window.showAlert(`تم تسجيل الطلب بنجاح (رقم ${dailyNum})`, 'success');
-        if(document.getElementById('auto-print').checked) window.printInvoice(invoice);
     }
 
-    // تنظيف السلة وتحديث النظام في الحالتين
+    // السحر الجراحي هنا: إجبار واجهة المستخدم على التنظيف والإغلاق فوراً قبل أي عملية ثقيلة (الطباعة)
     window.recalculateDailySales(); 
     updateUI(); 
-    currentCart = []; document.getElementById('cart-notes').value = '';
-    localStorage.removeItem('cart_draft'); renderCart();
+    currentCart = []; 
+    document.getElementById('cart-notes').value = '';
+    if (document.getElementById('cart-discount')) document.getElementById('cart-discount').value = '0';
+    localStorage.removeItem('cart_draft'); 
+    renderCart();
     window.closeModals();
+
+    // نقل الطباعة للخلفية (Asynchronous) لكي لا تجمد الواجهة وتمنع الإغلاق
+    if (!editingInvoiceId && document.getElementById('auto-print') && document.getElementById('auto-print').checked) {
+        // استخدام نسخة الفاتورة الجديدة للطباعة
+        let targetInvoice = invoice || localData.invoices[localData.invoices.length - 1];
+        setTimeout(() => {
+            try { window.printInvoice(targetInvoice); } catch(e) { console.error("خطأ في الطباعة", e); }
+        }, 400); // تأخير بسيط جداً ريثما تنغلق النافذة بانسيابية
+    }
+    
+    editingInvoiceId = null; // تصفير متغير التعديل بأمان
 };
+
+// --- التنبؤ الذكي بأسماء الزبائن في الكاشير ---
+window.filterCheckoutCustomerNames = (val) => {
+    const list = document.getElementById('checkout-autocomplete-list');
+    list.innerHTML = '';
+    if(!val) { list.style.display = 'none'; return; }
+    
+    // جلب جميع الزبائن من الفواتير والديون لاستخراج أحدث رقم هاتف
+    let customerMap = new Map();
+    // جلب من الفواتير (من الأقدم للأحدث ليتم الكتابة فوق الرقم القديم بأحدث رقم)
+    (localData.invoices || []).slice().reverse().forEach(inv => {
+        if(inv.customer && inv.customer.name && inv.customer.name.trim() !== "") {
+            customerMap.set(inv.customer.name, inv.customer.phone || "");
+        }
+    });
+    
+    let uniqueCustomers = Array.from(customerMap, ([name, phone]) => ({ name, phone }));
+    let matches = uniqueCustomers.filter(c => c.name.includes(val));
+    
+    if(matches.length > 0) {
+        // عرض أول 5 مقترحات فقط لتكون القائمة سريعة
+        matches.slice(0, 5).forEach(c => {
+            let div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `${c.name} <span style="color:#888; font-size:12px;">(${c.phone || 'بدون رقم'})</span>`;
+            div.onclick = () => {
+                document.getElementById('checkout-name').value = c.name;
+                document.getElementById('checkout-phone').value = c.phone || '';
+                list.style.display = 'none';
+            };
+            list.appendChild(div);
+        });
+        list.style.display = 'block';
+    } else {
+        list.style.display = 'none';
+    }
+};
+
+// إخفاء القوائم عند النقر خارجها
+document.addEventListener('click', function (e) {
+    if(document.getElementById('checkout-autocomplete-list') && e.target.id !== 'checkout-name') {
+        document.getElementById('checkout-autocomplete-list').style.display = 'none';
+    }
+    if(document.getElementById('sub-autocomplete-list') && e.target.id !== 'sub-customer-name') {
+        document.getElementById('sub-autocomplete-list').style.display = 'none';
+    }
+});
 
 // ---------------- الفواتير السابقة (عرض، تعديل، حذف) ----------------
 window.openPreviousInvoices = () => {
@@ -925,6 +1335,9 @@ window.openPreviousInvoices = () => {
         // حماية الذاكرة: استثناء فواتير الأيام الأخرى
         if (inv.timestamp < startTimestamp || inv.timestamp > endTimestamp) return;
         
+        // إخفاء الطلبات قيد الانتظار (Active) من هذه القائمة لتبقى في المستودع فقط
+        if (inv.type === 'active') return;
+        
         let customerName = inv.customer ? inv.customer.name.toLowerCase() : '';
         if (filterText && !inv.id.toLowerCase().includes(filterText) && !customerName.includes(filterText)) return;
 
@@ -946,8 +1359,6 @@ window.openPreviousInvoices = () => {
     document.getElementById('modal-invoices').style.display = 'flex';
 };
 
-window.filterInvoices = () => window.openPreviousInvoices();
-
 window.editInvoice = (id) => {
     const invoice = localData.invoices.find(i => i.id === id);
     if(invoice) {
@@ -955,6 +1366,11 @@ window.editInvoice = (id) => {
         
         currentCart = JSON.parse(JSON.stringify(invoice.items));
         document.getElementById('cart-notes').value = invoice.notes || '';
+        
+        // جلب الخصم القديم للفاتورة وعرضه
+        const discountInput = document.getElementById('cart-discount');
+        if (discountInput) discountInput.value = invoice.discount || 0;
+        
         editingInvoiceId = invoice.id;
         renderCart();
         window.closeModals();
@@ -965,131 +1381,94 @@ window.editInvoice = (id) => {
     }
 };
 
-window.saveEditedInvoice = () => {
-    const newTotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const oldIndex = localData.invoices.findIndex(i => i.id === editingInvoiceId);
-    const oldInvoice = localData.invoices[oldIndex];
-    
-    // 1. معالجة الفواتير المدفوعة جزئياً أو كلياً عبر اشتراك VIP
-    if (oldInvoice.paymentType === 'subscription' || oldInvoice.paymentType === 'mixed' || (oldInvoice.notes && oldInvoice.notes.includes('VIP'))) {
-        const subIndex = (localData.subscriptions || []).findIndex(s => s.customerName === (oldInvoice.customer?.name || ''));
-        if (subIndex > -1) {
-            const sub = localData.subscriptions[subIndex];
-            // البحث عن تفاصيل الخصم القديم داخل الباقة
-            const invIndexInSub = (sub.invoices || []).findIndex(i => i.id === oldInvoice.id);
-            
-            if (invIndexInSub > -1) {
-                const oldDeducted = sub.invoices[invIndexInSub].deducted;
-                const oldCash = sub.invoices[invIndexInSub].cash;
-                
-                // إعادة الرصيد القديم للباقة
-                sub.consumedAmount -= oldDeducted;
-                
-                let subBalance = sub.totalValue - sub.consumedAmount;
-                let newDeducted = Math.min(newTotal, subBalance);
-                let newCashAmount = newTotal - newDeducted;
-                
-                // تطبيق الرصيد الجديد
-                sub.consumedAmount += newDeducted;
-                sub.invoices[invIndexInSub].deducted = newDeducted;
-                sub.invoices[invIndexInSub].cash = newCashAmount;
-                
-                // تحديث الفاتورة
-                oldInvoice.customer.remainingPaid = newCashAmount;
-                oldInvoice.customer.subDeducted = newDeducted;
-                
-                let remainingBalText = (sub.totalValue - sub.consumedAmount).toLocaleString();
-                // استخراج الملاحظات القديمة بدون جزء الـ VIP لتحديثها
-                let baseNotes = (oldInvoice.notes || '').split('| 💳')[0].trim();
-                oldInvoice.notes = (baseNotes ? baseNotes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${newDeducted.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (newCashAmount > 0 ? ` (المتبقي دُفع كاش: ${newCashAmount.toLocaleString()} د.ع)` : '');
-                
-                oldInvoice.paymentType = newCashAmount > 0 ? 'mixed' : 'subscription';
-                
-                // تحديث السحابة باشتراك الـ VIP
-                update(ref(database, 'royal_data/subscriptions/' + sub.id), sub);
-                
-                // تحديث الدفعات المستقلة (Payments) إذا كان هناك كاش جديد
-                // للتبسيط، نعتبر تعديل الفاتورة المختلطة يتطلب فقط تحديث الصندوق اليومي إذا كانت بنفس اليوم
-            }
-        }
+// يعيد موازنة خصم باقة VIP بعد تعديل مجاميع الفاتورة، بنفس قواعد الدفع عند الاستلام
+window.rebalanceVipOnEdit = (inv, newTotal, info) => {
+    if (!info.wasVip) return;
+
+    const sub = (localData.subscriptions || []).find(s => s.customerName === info.ownerName);
+    if (!sub) return;
+
+    const invInSub = (sub.invoices || []).findIndex(i => i.id === inv.id);
+    if (invInSub === -1) return;
+
+    // إرجاع الرصيد القديم للباقة ثم خصم الرصيد الجديد حسب المبلغ المعدّل
+    sub.consumedAmount -= (sub.invoices[invInSub].deducted || 0);
+
+    const subBalance = sub.totalValue - sub.consumedAmount;
+    const newDeducted = Math.min(newTotal, subBalance);
+    const newCash = newTotal - newDeducted;
+
+    sub.consumedAmount += newDeducted;
+    sub.invoices[invInSub].deducted = newDeducted;
+    sub.invoices[invInSub].cash = newCash;
+
+    if (inv.customer) {
+        inv.customer.remainingPaid = newCash;
+        inv.customer.subDeducted = newDeducted;
     }
 
-    // 2. تحديث الكاصة اليومية للفواتير العادية والمختلطة
-    if (oldInvoice.date === getRealTime().date) {
-        if(oldInvoice.type === 'cash' || oldInvoice.paymentType === 'mixed' || oldInvoice.paymentType === 'cash') localData.dailySalesCash -= oldInvoice.total;
-        if(oldInvoice.type === 'electronic' || oldInvoice.paymentType === 'electronic') localData.dailySalesElectronic -= oldInvoice.total;
-        
-        if(oldInvoice.type === 'cash' || oldInvoice.paymentType === 'mixed' || oldInvoice.paymentType === 'cash') localData.dailySalesCash += newTotal;
-        if(oldInvoice.type === 'electronic' || oldInvoice.paymentType === 'electronic') localData.dailySalesElectronic += newTotal;
-    }
+    const baseNotes = (inv.notes || '').split('| 💳')[0].trim();
+    const remainingBalText = (sub.totalValue - sub.consumedAmount).toLocaleString();
+    inv.notes = (baseNotes ? baseNotes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${newDeducted.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (newCash > 0 ? ` (المتبقي دُفع كاش: ${newCash.toLocaleString()} د.ع)` : '');
+    inv.paymentType = newCash > 0 ? 'mixed' : 'subscription';
 
-    localData.invoices[oldIndex].items = [...currentCart];
-    localData.invoices[oldIndex].total = newTotal;
-    // تحديث الملاحظات العادية إذا لم تكن فاتورة VIP
-    if (!(oldInvoice.paymentType === 'subscription' || oldInvoice.paymentType === 'mixed' || (oldInvoice.notes && oldInvoice.notes.includes('VIP')))) {
-         localData.invoices[oldIndex].notes = document.getElementById('cart-notes').value;
-    }
-
-    window.logAction('تعديل فاتورة', 'تعديل فاتورة رقم: ' + editingInvoiceId, newTotal, { oldInvoice: oldInvoice, newCart: currentCart });
-    
-    // تحديث الفاتورة في السحابة
-    const invoiceRef = ref(database, 'royal_data/invoices/' + editingInvoiceId);
-    update(invoiceRef, {
-        items: localData.invoices[oldIndex].items,
-        total: localData.invoices[oldIndex].total,
-        notes: localData.invoices[oldIndex].notes,
-        paymentType: localData.invoices[oldIndex].paymentType,
-        customer: localData.invoices[oldIndex].customer
-    });
-    
-    window.recalculateDailySales(); // إعادة الحساب لتأكيد الدقة
-    updateUI();
-
-    editingInvoiceId = null; currentCart = []; document.getElementById('cart-notes').value = '';
-    localStorage.removeItem('cart_draft'); renderCart();
-
-    document.getElementById('btn-save-edit').style.display = 'none';
-    document.getElementById('btn-main-checkout').style.display = 'flex';
-    window.showAlert('تم حفظ تعديلات الفاتورة بنجاح!', 'success');
+    update(ref(database, 'royal_data/subscriptions/' + sub.id), sub);
 };
 
 window.deleteInvoice = (id) => {
-    // استدعاء النافذة المخصصة بدلاً من confirm
     window.showConfirm('تحذير: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ لا يمكن التراجع عن هذا الإجراء.', () => {
         const index = localData.invoices.findIndex(i => i.id === id);
+        if(index === -1) return;
         const inv = localData.invoices[index];
 
-        if (inv.date === getRealTime().date) {
-            if(inv.type === 'cash') localData.dailySalesCash -= inv.total;
-            else if(inv.type === 'electronic') localData.dailySalesElectronic -= inv.total;
-            else if(inv.type === 'credit' && inv.customer) localData.dailySalesCash -= inv.customer.paid;
+        // 1. حذف الديون المرتبطة بها
+        const debtIndex = (localData.debts || []).findIndex(d => d.invoiceId === inv.id);
+        if (debtIndex > -1) {
+            const debtId = localData.debts[debtIndex].id;
+            localData.debts.splice(debtIndex, 1);
+            if (debtId) remove(ref(database, 'royal_data/debts/' + debtId));
         }
 
-        // --- إصلاح: حذف الدين المرتبط بالفاتورة إذا كانت آجل ---
-        if (inv.type === 'credit') {
-            const debtIndex = (localData.debts || []).findIndex(d => d.invoiceId === inv.id);
-            if (debtIndex > -1) {
-                const debtId = localData.debts[debtIndex].id; // افتراض وجود id
-                localData.debts.splice(debtIndex, 1);
-                // التدخل الجراحي: مسح مسار الدين مباشرة
-                if (debtId) remove(ref(database, 'royal_data/debts/' + debtId));
+        // 2. حذف أي دفعات مستقلة (Payments) مرتبطة برقم هذه الفاتورة (لضمان رجوع المبيعات)
+        let dailyNumStr = String(inv.dailyNumber || inv.id);
+        let paymentsToDelete = (localData.payments || []).filter(p => p.details && (p.details.includes(inv.id) || p.details.includes(dailyNumStr)));
+        
+        paymentsToDelete.forEach(pDel => {
+            const pIdx = localData.payments.findIndex(p => p.id === pDel.id);
+            if(pIdx > -1) {
+                localData.payments.splice(pIdx, 1);
+                remove(ref(database, 'royal_data/payments/' + pDel.id));
+            }
+        });
+
+        // 3. إرجاع رصيد الـ VIP إذا كانت مدفوعة باشتراك
+        if (inv.paymentType === 'subscription' || inv.paymentType === 'mixed' || (inv.notes && inv.notes.includes('VIP'))) {
+            const subIndex = (localData.subscriptions || []).findIndex(s => s.customerName === (inv.customer?.name || ''));
+            if (subIndex > -1) {
+                let sub = localData.subscriptions[subIndex];
+                let invInSubIndex = (sub.invoices || []).findIndex(subI => subI.id === inv.id);
+                if (invInSubIndex > -1) {
+                    sub.consumedAmount -= sub.invoices[invInSubIndex].deducted;
+                    sub.invoices.splice(invInSubIndex, 1);
+                    update(ref(database, 'royal_data/subscriptions/' + sub.id), sub);
+                }
             }
         }
-        // -------------------------------------------------
 
-        window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + inv.id, inv.total, inv);
-        localData.invoices.splice(index, 1);
+        window.logAction('حذف فاتورة', 'تم حذف فاتورة رقم: ' + (inv.dailyNumber || inv.id), inv.total, inv);
         
-        // التدخل الجراحي: مسح الفاتورة من مسارها الخاص فقط باستخدام remove
+        // 4. الحذف النهائي
+        localData.invoices.splice(index, 1);
         remove(ref(database, 'royal_data/invoices/' + id));
+        
+        // 5. إعادة حساب مبيعات اليوم بدقة من الصفر بناءً على البيانات النظيفة
         window.recalculateDailySales();
         updateUI();
         
-       // التدخل الجراحي: تحديث فوري وسلس للنافذة المفتوحة أمام الكاشير
         if (document.getElementById('modal-active-orders').style.display === 'flex') {
-            window.renderActiveOrders(); // تحديث المستودع فوراً
+            window.renderActiveOrders();
         } else if (document.getElementById('modal-invoices').style.display === 'flex') {
-            window.openPreviousInvoices(); // تحديث الفواتير السابقة
+            window.openPreviousInvoices();
         } 
     });
 };
@@ -1123,275 +1502,6 @@ window.viewInvoice = (id) => {
 
     document.getElementById('modal-invoices').style.display = 'none';
     document.getElementById('modal-view-invoice').style.display = 'flex';
-};
-
-window.printInvoice = (invoice) => {
-    // 1. سحب بيانات التخصيصات من الآدمن
-    // قمنا بمسح كلمة VIP برمجياً في حال كانت مكتوبة في الإعدادات
-    let rawShopName = localData.settings?.name || 'مكوى رويال';
-    let shopName = rawShopName.replace('VIP', '').trim(); 
-    let shopPhone = localData.settings?.phone || '07800000000';
-    let shopAddress = localData.settings?.address || 'الكوفة، النجف الأشرف';
-
-    // 2. تجهيز بيانات الزبون والوقت
-    let custName = invoice.customer ? invoice.customer.name : 'عميل نقدي';
-    let custPhone = invoice.customer && invoice.customer.phone ? invoice.customer.phone : '---';
-    let deposit = invoice.customer ? invoice.customer.paid.toLocaleString() : '0';
-    let remaining = invoice.customer ? invoice.customer.remaining.toLocaleString() : invoice.total.toLocaleString();
-    let dailyNum = invoice.dailyNumber ? invoice.dailyNumber.toString().padStart(4, '0') : invoice.id.slice(-4);
-    let notes = invoice.notes || 'شكراً لاختياركم مكوى رويال. نحرص دائماً على تقديم أفضل عناية لملابسكم.';
-    
-    // ضبط الوقت ليكون إنجليزي (AM/PM) وبدون ثوانٍ
-    let formattedTime = new Date(invoice.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-    // 3. بناء صفوف الجدول
-    let itemsRows = invoice.items.map((item, index) => `
-        <tr>
-            <td style="text-align: center;">${String(index + 1).padStart(2, '0')}</td>
-            <td class="text-right">
-                <span style="font-weight: 900; font-size: 14px;">${item.name}</span> <br>
-                <span style="font-size: 11px; color: #444;">(${item.serviceName})</span>
-            </td>
-            <td style="text-align: center;">${item.qty}</td>
-            <td style="text-align: center;">${item.price.toLocaleString()}</td>
-            <td style="text-align: center; font-weight: 900;">${(item.price * item.qty).toLocaleString()}</td>
-        </tr>
-    `).join('');
-
-    // 4. التصميم الهندسي الأبيض النقي للفاتورة (A5)
-    const printHTML = `
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-        <meta charset="UTF-8">
-        <title>فاتورة - ${dailyNum}</title>
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
-            
-            /* إعدادات A5 وإلغاء هوامش المتصفح */
-            @page { size: A5; margin: 0; }
-            
-            body { 
-                font-family: 'Cairo', sans-serif; 
-                margin: 0; padding: 12mm; 
-                width: 148mm; height: 210mm; 
-                box-sizing: border-box;
-                background-color: #fff;
-                color: #000;
-            }
-
-            /* الترويسة الهندسية المخططة */
-            .header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 3px double #000;
-                padding-bottom: 12px;
-                margin-bottom: 15px;
-            }
-            .shop-info h1 { font-size: 32px; font-weight: 900; margin: 0; letter-spacing: -1px; }
-            .shop-info p { font-size: 12px; font-weight: 700; margin: 2px 0 0 0; color: #333; }
-            
-            .invoice-badge {
-                border: 3px solid #000;
-                border-radius: 8px;
-                padding: 5px 15px;
-                font-size: 24px;
-                font-weight: 900;
-                text-align: center;
-            }
-
-            /* مربعات المعلومات (الزبون والتفاصيل) */
-            .info-grid {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 15px;
-            }
-            .info-box {
-                flex: 1;
-                border: 2px solid #000;
-                border-radius: 8px;
-                padding: 10px;
-            }
-            .info-box h3 { 
-                margin: 0 0 8px 0; 
-                font-size: 12px; 
-                border-bottom: 1px dashed #000; 
-                padding-bottom: 5px; 
-            }
-            .info-line {
-                display: flex;
-                justify-content: space-between;
-                font-size: 13px;
-                font-weight: 700;
-                margin-bottom: 4px;
-            }
-
-            /* الجدول بخطوط واضحة */
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                border: 2px solid #000;
-                margin-bottom: 15px;
-            }
-            th {
-                background-color: #f5f5f5; /* لون رصاصي فاتح جداً للتمييز فقط */
-                border: 1px solid #000;
-                border-bottom: 2px solid #000;
-                padding: 8px 5px;
-                font-size: 12px;
-                font-weight: 900;
-            }
-            td {
-                border: 1px solid #000;
-                padding: 8px 5px;
-                font-size: 13px;
-                font-weight: 700;
-            }
-            .text-right { text-align: right; padding-right: 10px; }
-
-            /* المجاميع والملاحظات */
-            .bottom-grid {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-end;
-            }
-            .notes-box {
-                width: 45%;
-                border: 1px solid #000;
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 11px;
-                font-weight: 700;
-                color: #222;
-                line-height: 1.6;
-            }
-            .totals-box {
-                width: 48%;
-                border: 2px solid #000;
-                border-radius: 8px;
-                padding: 10px;
-            }
-            .total-line {
-                display: flex;
-                justify-content: space-between;
-                font-size: 13px;
-                font-weight: 900;
-                margin-bottom: 6px;
-            }
-            .total-line.deposit { color: #555; }
-            .total-line.final {
-                border-top: 2px dashed #000;
-                padding-top: 8px;
-                font-size: 18px;
-                margin-top: 4px;
-                margin-bottom: 0;
-            }
-
-            /* تذييل الفاتورة */
-            .footer {
-                margin-top: 20px;
-                text-align: center;
-                border-top: 2px solid #000;
-                padding-top: 8px;
-                font-size: 12px;
-                font-weight: 900;
-            }
-        </style>
-    </head>
-    <body>
-
-        <div class="header">
-            <div class="shop-info">
-                <h1>${shopName}</h1>
-                <p>عناية فائقة وتفاصيل ملكية لملابسك</p>
-            </div>
-            <div class="invoice-badge">
-                فاتورة طلب
-            </div>
-        </div>
-
-        <div class="info-grid">
-            <div class="info-box">
-                <h3>معلومات الزبون</h3>
-                <div class="info-line"><span>الاسم:</span> <span>${custName}</span></div>
-                <div class="info-line"><span>الهاتف:</span> <span dir="ltr">${custPhone}</span></div>
-            </div>
-            <div class="info-box">
-                <h3>تفاصيل الطلب</h3>
-                <div class="info-line"><span>رقم الطلب:</span> <span>${dailyNum}</span></div>
-                <div class="info-line"><span>التاريخ:</span> <span>${invoice.date}</span></div>
-                <div class="info-line"><span>الوقت:</span> <span dir="ltr">${formattedTime}</span></div>
-            </div>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 8%;">ت.</th>
-                    <th class="text-right" style="width: 42%;">القطعة والتفاصيل</th>
-                    <th style="width: 15%;">العدد</th>
-                    <th style="width: 15%;">السعر</th>
-                    <th style="width: 20%;">المجموع</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${itemsRows}
-            </tbody>
-        </table>
-
-        <div class="bottom-grid">
-            <div class="notes-box">
-                <strong>ملاحظات:</strong><br>
-                ${notes}
-            </div>
-            <div class="totals-box">
-                <div class="total-line">
-                    <span>المجموع الكلي:</span>
-                    <span>${invoice.total.toLocaleString()} د.ع</span>
-                </div>
-                <div class="total-line deposit">
-                    <span>العربون المدفوع:</span>
-                    <span>${deposit} د.ع</span>
-                </div>
-                <div class="total-line final">
-                    <span>المطلوب:</span>
-                    <span>${remaining} د.ع</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="footer">
-            العنوان: ${shopAddress} &nbsp; | &nbsp; هاتف: ${shopPhone}
-        </div>
-
-    </body>
-    </html>
-    `;
-
-    // 5. نظام الطباعة الذكي (كشف بيئة العمل)
-    if (typeof require !== 'undefined') {
-        // نحن نعمل داخل تطبيق Electron (الطباعة الصامتة السريعة)
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.send('print-silent', printHTML);
-    } else {
-        // نحن نعمل في المتصفح العادي (للتجارب والويب)
-        const printFrame = document.createElement('iframe');
-        printFrame.style.position = 'absolute';
-        printFrame.style.top = '-9999px';
-        printFrame.style.left = '-9999px';
-        document.body.appendChild(printFrame);
-
-        printFrame.contentWindow.document.open();
-        printFrame.contentWindow.document.write(printHTML);
-        printFrame.contentWindow.document.close();
-
-        setTimeout(() => {
-            printFrame.contentWindow.focus();
-            printFrame.contentWindow.print();
-            setTimeout(() => { document.body.removeChild(printFrame); }, 1000);
-        }, 500);
-    }
 };
 
 // ==========================================
@@ -1740,17 +1850,52 @@ window.deleteExpense = (index) => {
 // --- دوال المحفظة وحركة الشركاء (الكاشير) ---
 // ==========================================
 window.openPartnerTxModal = () => {
-    document.getElementById('partner-tx-amount').value = '';
-    document.getElementById('partner-tx-reason').value = '';
-    document.getElementById('partner-tx-account').selectedIndex = 0;
+    // إغلاق الواجهة الرئيسية وعرض شاشة القفل حصراً
+    document.getElementById('tx-main-screen').style.display = 'none';
+    document.getElementById('tx-lock-screen').style.display = 'block';
+    document.getElementById('partner-tx-pin').value = '';
     
-    // تصفير الأزرار
-    document.getElementById('lbl-tx-deposit').style.borderColor = 'transparent';
-    document.getElementById('lbl-tx-withdraw').style.borderColor = 'transparent';
-    let radios = document.getElementsByName('partner_tx_type');
-    radios.forEach(r => r.checked = false);
-
     document.getElementById('modal-partner-tx').style.display = 'flex';
+    setTimeout(() => { document.getElementById('partner-tx-pin').focus(); }, 100);
+};
+
+window.unlockPartnerTx = () => {
+    const pin = document.getElementById('partner-tx-pin').value;
+    if (pin === 'ahmed2003') {
+        // الرمز صحيح، نظهر الواجهة المخفية
+        document.getElementById('tx-lock-screen').style.display = 'none';
+        document.getElementById('tx-main-screen').style.display = 'block';
+        
+        // تصفير الواجهة للبدء
+        document.getElementById('partner-tx-amount').value = '';
+        document.getElementById('partner-tx-reason').value = '';
+        document.getElementById('partner-tx-account').selectedIndex = 0;
+        
+        // إلغاء تحديد البطاقات
+        document.querySelectorAll('.tx-card').forEach(c => c.classList.remove('selected'));
+        let radios = document.getElementsByName('partner_tx_type');
+        radios.forEach(r => r.checked = false);
+        
+        // تصفير حقل الإدخال
+        const amtInput = document.getElementById('partner-tx-amount');
+        amtInput.style.color = "var(--gold)";
+    } else {
+        window.showAlert('رمز الدخول غير صحيح! التشفير مفعل.', 'error');
+        document.getElementById('partner-tx-pin').value = '';
+    }
+};
+
+window.selectTxType = (type) => {
+    document.querySelectorAll('.tx-card').forEach(c => c.classList.remove('selected'));
+    const amtInput = document.getElementById('partner-tx-amount');
+    
+    if (type === 'إيداع') {
+        document.getElementById('lbl-tx-deposit').classList.add('selected');
+        amtInput.style.color = "var(--green-success)";
+    } else {
+        document.getElementById('lbl-tx-withdraw').classList.add('selected');
+        amtInput.style.color = "var(--red-danger)";
+    }
 };
 
 window.savePartnerTx = () => {
@@ -1785,58 +1930,93 @@ window.savePartnerTx = () => {
 
     window.logAction('حركة شركاء', `${type} بقيمة ${amount} لحساب (${account})`, amount, newTx);
     
-    if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
+    if(isAdminActive()) window.updateAdminDashboard();
     window.closeModals();
     window.showAlert(`تم تسجيل ${type} بنجاح لحساب ${account}`, 'success');
 };
 
 // ---------------- تحديث الـ UI (مبيعات اليوم) ----------------
 let lastSalesTotal = 0;
+
+function isAdminActive() {
+    const adminScreen = document.getElementById('admin-screen');
+    return !!(adminScreen && adminScreen.classList.contains('active-screen'));
+}
+
 function updateUI() {
     let dailyTotal = (localData.dailySalesCash || 0) + (localData.dailySalesElectronic || 0);
     const display = document.getElementById('daily-sales-val');
     const wrapper = document.getElementById('daily-sales-display');
-    
-    if(dailyTotal > lastSalesTotal) { wrapper.classList.add('increase'); setTimeout(()=>wrapper.classList.remove('increase'), 500); } 
-    else if (dailyTotal < lastSalesTotal) { wrapper.classList.add('decrease'); setTimeout(()=>wrapper.classList.remove('decrease'), 500); }
-    
-    animateValue(display, lastSalesTotal, dailyTotal, 500);
+
+    if (wrapper && dailyTotal !== lastSalesTotal) {
+        const fx = dailyTotal > lastSalesTotal ? 'increase' : 'decrease';
+        wrapper.classList.add(fx);
+        setTimeout(() => wrapper.classList.remove(fx), 500);
+    }
+
+    if (display) animateValue(display, lastSalesTotal, dailyTotal, 500);
     lastSalesTotal = dailyTotal;
-    
-    if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
+
+    if (isAdminActive()) window.updateAdminDashboard();
 }
 
 function animateValue(obj, start, end, duration) {
+    // إلغاء أي حركة سابقة لمنع التذبذب عند النقر السريع والمتكرر
+    if (obj.animFrame) cancelAnimationFrame(obj.animFrame);
+    
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+        let currentVal = Math.floor(progress * (end - start) + start);
+        
+        // ذكاء التمييز: إذا كان العنصر "حقل إدخال" نغير الـ value، وإلا نغير الـ innerHTML
+        if (obj.tagName === 'INPUT') obj.value = currentVal;
+        else obj.innerHTML = currentVal.toLocaleString();
+        
         if (progress < 1) { 
-            window.requestAnimationFrame(step); 
+            obj.animFrame = window.requestAnimationFrame(step); 
         } else {
-            obj.innerHTML = end.toLocaleString(); // ضمان توقف الرقم النهائي بدقة تامة
+            // الوصول للرقم النهائي بدقة
+            if (obj.tagName === 'INPUT') obj.value = end;
+            else obj.innerHTML = end.toLocaleString();
+            delete obj.animFrame;
         }
     };
-    window.requestAnimationFrame(step);
+    obj.animFrame = window.requestAnimationFrame(step);
 }
 
 // ---------------- وظائف الآدمن ----------------
-window.switchAdminTab = (tab) => {
+window.switchAdminTab = (tab, animationType = 'fade-in') => {
     if (!secureAdminToken) { window.exitToMain(); return window.showAlert('محاولة وصول غير مصرح بها!', 'error'); }
-    sessionStorage.setItem('admin_tab', tab); // حفظ التبويب المحدد
-    document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`admin-${tab}`).classList.add('active');
-    event.target.classList.add('active');
+    sessionStorage.setItem('admin_tab', tab); 
     
-    if(tab === 'dashboard') window.updateAdminDashboard();
-    if(tab === 'logs') window.renderLogs();
-    if(tab === 'subscriptions' && window.renderAdminSubs) window.renderAdminSubs();
-    if(tab === 'settings') {
-        document.getElementById('set-name').value = localData.settings.name;
-        document.getElementById('set-phone').value = localData.settings.phone;
-        document.getElementById('set-address').value = localData.settings.address;
+    document.querySelectorAll('.admin-section').forEach(s => {
+        s.classList.remove('active', 'slide-from-left', 'slide-from-right', 'fade-in');
+    });
+    document.querySelectorAll('.admin-nav-btn, .bottom-nav-btn').forEach(b => b.classList.remove('active')); 
+    
+    const targetSection = document.getElementById(`admin-${tab}`);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        if (animationType !== 'none') targetSection.classList.add(animationType);
+    }
+    
+    document.querySelectorAll(`.admin-nav-btn[onclick*="'${tab}'"], .bottom-nav-btn[onclick*="'${tab}'"]`).forEach(btn => {
+        btn.classList.add('active');
+    });
+
+    // تشغيل وإيقاظ محرك الاستوديو فوراً عند دخول الآدمن لتبويب التصميم
+    if (tab === 'invoice-designer') {
+        if (window.initFabricStudio) window.initFabricStudio();
+    }
+
+    // تعبئة حقول التخصيصات بالقيم المحفوظة عند فتح تبويبها
+    if (tab === 'settings') {
+        const savedSettings = localData.settings || {};
+        document.getElementById('set-name').value = savedSettings.name || '';
+        document.getElementById('set-phone').value = savedSettings.phone || '';
+        document.getElementById('set-address').value = savedSettings.address || '';
     }
 };
 
@@ -1974,13 +2154,92 @@ window.updateAdminDashboard = () => {
         let data = groupedDebts[customerName];
         let invList = data.invoices.join(' ، '); 
         debtsTbody.innerHTML += `<tr>
-            <td style="font-weight:bold; font-size:16px;">${customerName}</td>
-            <td>${data.phone || '-'}</td>
-            <td style="font-size:12px; color:var(--text-gray);">${invList}</td>
+            <td style="font-weight:bold; font-size:16px;">${window.escapeHTML(customerName)}</td>
+            <td>${window.escapeHTML(data.phone || '-')}</td>
+            <td style="font-size:12px; color:var(--text-gray);">${window.escapeHTML(invList)}</td>
             <td style="color:var(--red-danger); font-weight:bold; font-size:18px;">${data.totalRemaining.toLocaleString()}</td>
-            <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" onclick="window.payDebtByName('${customerName}')">تسديد دفعة</button></td>
+            <td><button class="top-bar-btn" style="background:#4a90e2; color:white; border-color:#4a90e2;" data-debt-name="${window.escapeHTML(customerName)}">تسديد دفعة</button></td>
         </tr>`;
     }
+
+    // قسم التكاليف التشغيلية
+    const costsTbody = document.getElementById('costs-table-body');
+    costsTbody.innerHTML = (localData.operatingCosts || []).map(c => `<tr>
+            <td>${window.escapeHTML(c.date)}</td>
+            <td>${window.escapeHTML(c.name)}</td>
+            <td style="font-weight:bold; color:var(--red-danger);">${c.amount.toLocaleString()}</td>
+        </tr>`).join('');
+
+    // ==========================================
+    // --- محرك الذكاء المالي: إحصائيات الزبائن ---
+    // ==========================================
+    let customerAnalytics = {};
+
+    // تجميع البيانات من الفواتير لجميع الأوقات
+    (localData.invoices || []).forEach(inv => {
+        if (inv.customer && inv.customer.name && inv.customer.name.trim() !== "" && inv.customer.name !== "عميل نقدي") {
+            let cName = inv.customer.name;
+            if (!customerAnalytics[cName]) {
+                customerAnalytics[cName] = { name: cName, spent: 0, visits: 0, phone: inv.customer.phone || '-' };
+            }
+            customerAnalytics[cName].visits += 1;
+            
+            // حساب المبلغ المدفوع الكلي من هذه الفاتورة
+            if (inv.type === 'active' || inv.type === 'archived') {
+                customerAnalytics[cName].spent += (inv.total || 0); // نجمع القيمة الكلية للفاتورة لتقييم قوة الزبون
+            } else {
+                customerAnalytics[cName].spent += inv.total;
+            }
+        }
+    });
+
+    let customersArray = Object.values(customerAnalytics);
+    
+    // 1. ترتيب وتوليد قائمة "النخبة" (Top Spenders)
+    customersArray.sort((a, b) => b.spent - a.spent);
+    let topSpenders = customersArray.slice(0, 5);
+    let maxSpend = topSpenders.length > 0 ? topSpenders[0].spent : 1; // لتحديد نسبة مئوية صحيحة
+    
+    let spendersHTML = '';
+    topSpenders.forEach(c => {
+        let percent = Math.max(10, Math.floor((c.spent / maxSpend) * 100)); // الحد الأدنى 10% للرؤية
+        spendersHTML += `
+            <div class="customer-stat-item">
+                <div class="customer-stat-header">
+                    <span style="color:var(--text-white);">${c.name}</span>
+                    <span style="color:var(--green-success);">${c.spent.toLocaleString()} د.ع</span>
+                </div>
+                <div class="customer-stat-bar-bg">
+                    <div class="customer-stat-bar-fill fill-green" style="width: ${percent}%;"></div>
+                </div>
+            </div>`;
+    });
+    
+    let elSpenders = document.getElementById('top-spenders-list');
+    if(elSpenders) elSpenders.innerHTML = spendersHTML || '<p style="text-align:center; color:gray;">لا توجد بيانات كافية بعد.</p>';
+
+    // 2. ترتيب وتوليد قائمة "الولاء" (Top Visitors)
+    customersArray.sort((a, b) => b.visits - a.visits);
+    let topVisitors = customersArray.slice(0, 5);
+    let maxVisits = topVisitors.length > 0 ? topVisitors[0].visits : 1;
+    
+    let visitorsHTML = '';
+    topVisitors.forEach(c => {
+        let percent = Math.max(10, Math.floor((c.visits / maxVisits) * 100));
+        visitorsHTML += `
+            <div class="customer-stat-item">
+                <div class="customer-stat-header">
+                    <span style="color:var(--text-white);">${c.name}</span>
+                    <span style="color:#4a90e2;">${c.visits} زيارات</span>
+                </div>
+                <div class="customer-stat-bar-bg">
+                    <div class="customer-stat-bar-fill fill-blue" style="width: ${percent}%;"></div>
+                </div>
+            </div>`;
+    });
+    
+    let elVisitors = document.getElementById('top-visitors-list');
+    if(elVisitors) elVisitors.innerHTML = visitorsHTML || '<p style="text-align:center; color:gray;">لا توجد بيانات كافية بعد.</p>';
 
     // ==========================================
     // --- الحسابات التراكمية للمحفظة (الشركاء) ---
@@ -2143,6 +2402,12 @@ window.payDebtByName = (name) => {
     document.getElementById('modal-pay-debt').style.display = 'flex';
 };
 
+// زر التسديد يُولَّد داخل innerHTML، فمستمع واحد يكفي ولا يتأثر بإعادة الرسم
+document.addEventListener('click', (e) => {
+    const debtBtn = e.target.closest('[data-debt-name]');
+    if (debtBtn) window.payDebtByName(debtBtn.dataset.debtName);
+});
+
 window.confirmPayDebt = () => {
     let payAmount = parseFloat(document.getElementById('debt-pay-amount').value);
     if (!payAmount || payAmount <= 0) return window.showAlert('الرجاء إدخال مبلغ صحيح', 'error');
@@ -2198,9 +2463,6 @@ window.confirmPayDebt = () => {
     saveDataToCloud(); window.updateAdminDashboard(); window.closeModals();
     window.showAlert('تم تسديد الدفعة وتوزيعها بنجاح', 'success');
 };
-
-// دالة الفلترة (احتياطياً في حال لم تكن موجودة لضمان عمل شريط البحث)
-window.filterLogs = (val) => { if(window.renderLogs) window.renderLogs(val); };
 
 // دالة المشاهدة العميقة والمحلل الذكي (Deep View) - نسخة واجهة المستخدم الأنيقة
 window.viewLogDetails = (id) => {
@@ -2301,61 +2563,724 @@ window.viewLogDetails = (id) => {
     document.getElementById('modal-log-details').style.display = 'flex';
 };
         
-// ==========================================
-// --- دوال المحرر المرئي للفاتورة (A5) ---
-// ==========================================
-window.insertTag = (tag) => {
-    const editor = document.getElementById('invoice-editor-area');
-    editor.focus();
+// =========================================================
+// --- محرك استوديو التصميم المتعدد (الفاتورة + الشفت) ---
+// =========================================================
+let canvasEditor;
+let currentZoom = 1;
+let currentDesignerMode = 'invoice'; // 'invoice' or 'shift'
+let designCache = { invoice: null, shift: null };
+
+window.initFabricStudio = () => {
+    if (!canvasEditor) {
+        canvasEditor = new fabric.Canvas('fabric-canvas', { backgroundColor: 'transparent', preserveObjectStacking: true });
+        
+        // ميزة التكبير والتصغير لـ "الورقة"
+        const workspace = document.getElementById('workspace-container');
+        const paper = document.getElementById('paper-wrapper');
+        workspace.addEventListener('wheel', function(e) {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                if (e.deltaY < 0) currentZoom += 0.1; 
+                else currentZoom -= 0.1; 
+                currentZoom = Math.max(0.4, Math.min(currentZoom, 2.5));
+                paper.style.transform = `scale(${currentZoom})`;
+            }
+        }, { passive: false }); // إجبار المتصفح على احترام المنع وعدم التكبير العشوائي
+        canvasEditor.on('selection:created', updatePropsPanel);
+        canvasEditor.on('selection:updated', updatePropsPanel);
+        canvasEditor.on('selection:cleared', () => {
+            const panel = document.getElementById('fabric-props-panel');
+            if(panel) { panel.style.opacity = '0.3'; panel.style.pointerEvents = 'none'; }
+        });
+    }
+    // تشغيل وضع الفاتورة كافتراضي
+    window.switchDesignerTab('invoice');
+};
+
+window.switchDesignerTab = (mode) => {
+    // 1. حماية قصوى: لا تحفظ التصميم في الكاش إذا كانت الشاشة بيضاء!
+    if (canvasEditor && canvasEditor.getObjects().length > 0) {
+        designCache[currentDesignerMode] = JSON.stringify(canvasEditor.toJSON());
+    }
     
-    // إدراج المتغير بدقة في مكان وقوف مؤشر الماوس
-    if (window.getSelection && window.getSelection().getRangeAt && window.getSelection().rangeCount > 0) {
-        let range = window.getSelection().getRangeAt(0);
-        let node = document.createTextNode(tag);
-        range.insertNode(node);
-        range.setStartAfter(node);
-        range.setEndAfter(node);
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
+    currentDesignerMode = mode;
+    
+    document.getElementById('tab-design-invoice').style.background = mode === 'invoice' ? 'var(--gold)' : 'transparent';
+        document.getElementById('tab-design-invoice').style.color = mode === 'invoice' ? '#000' : 'var(--text-white)';
+        document.getElementById('tab-design-shift').style.background = mode === 'shift' ? 'var(--gold)' : 'transparent';
+        document.getElementById('tab-design-shift').style.color = mode === 'shift' ? '#000' : 'var(--text-white)';
+
+        // تنظيف الورقة لضمان عدم تداخل تصميم الفاتورة مع تقرير الشفت
+        canvasEditor.clear();
+    
+    // 2. محاولة استرجاع تصميمك المفقود بأولوية قسوى من الذاكرة
+    let loadedDesign = designCache[mode];
+    if(!loadedDesign) {
+        if (mode === 'invoice') {
+            loadedDesign = localData.settings?.invoiceTemplate || localStorage.getItem('royal_fabric_template');
+        } else {
+            loadedDesign = localData.settings?.shiftTemplate || localStorage.getItem('royal_shift_template');
+        }
+    }
+
+    // 3. فلتر الأمان: التأكد أن التصميم المحفوظ ليس صفحة فارغة
+    let isEmptyDesign = false;
+    try {
+        let parsed = JSON.parse(loadedDesign);
+        if (!parsed || !parsed.objects || parsed.objects.length === 0) isEmptyDesign = true;
+    } catch(e) { isEmptyDesign = true; }
+
+    if (loadedDesign && !isEmptyDesign) {
+        // استرجاع تصميمك فوراً وعرضه!
+        canvasEditor.loadFromJSON(loadedDesign, () => {
+            canvasEditor.renderAll();
+        });
     } else {
-        editor.innerHTML += tag;
+        // بناء القوالب الافتراضية فقط إذا كان النظام جديداً تماماً
+        if (mode === 'invoice') {
+            window.fabricAddText('فاتورة طلب', 30, '#000000');
+            window.fabricAddText('[بداية_الجدول]', 16, '#2ed573');
+            window.fabricAddText('[نهاية_الجدول]', 16, '#ff4757');
+        } else {
+            window.fabricAddText('تقرير تسليم شفت', 36, '#000000');
+            window.fabricAddText('الكاشير: [اسم_الكاشير]', 20, '#111');
+            window.fabricAddText('من: [بداية_الشفت]  |  إلى: [نهاية_الشفت]', 16, '#444');
+            window.fabricAddText('إجمالي المقبوضات (كاش): [كاش_المبيعات]', 22, '#2ed573');
+            window.fabricAddText('المصروفات المسحوبة: [المصروفات]', 22, '#ff4757');
+            window.fabricAddText('الصافي المطلوب تسليمه: [صافي_الصندوق]', 28, '#000');
+        }
     }
 };
 
-window.saveInvoiceDesign = () => {
-    const htmlContent = document.getElementById('invoice-editor-area').innerHTML;
-    localStorage.setItem('royal_invoice_template', htmlContent);
-    window.showAlert('تم حفظ تصميم الفاتورة A5 بنجاح! سيتم اعتماده للطباعة فوراً.', 'success');
+window.saveFabricDesign = () => {
+    if(!canvasEditor) return;
+    const jsonDesign = JSON.stringify(canvasEditor.toJSON());
+    designCache[currentDesignerMode] = jsonDesign; // حفظه في الكاش أيضاً
+    
+    if (!localData.settings) localData.settings = {};
+    
+    if (currentDesignerMode === 'invoice') {
+        localStorage.setItem('royal_fabric_template', jsonDesign);
+        localData.settings.invoiceTemplate = jsonDesign;
+        window.showAlert('تم حفظ تصميم الفاتورة بنجاح!', 'success');
+    } else {
+        localStorage.setItem('royal_shift_template', jsonDesign);
+        localData.settings.shiftTemplate = jsonDesign;
+        window.showAlert('تم حفظ تصميم تقرير الشفت بنجاح!', 'success');
+    }
+    saveDataToCloud();
 };
 
-window.loadInvoiceTemplateToEditor = () => {
-    const editor = document.getElementById('invoice-editor-area');
-    if (!editor) return;
+// --- أمر المزامنة الفورية للكاشير ---
+window.forceSyncCloud = () => {
+    document.getElementById('hamburger-menu').classList.remove('show');
+    if (!navigator.onLine) return window.showAlert('أنت حالياً أوفلاين. لا يمكن مزامنة البيانات السحابية.', 'error');
     
-    let saved = localStorage.getItem('royal_invoice_template');
-    if (saved) {
-        editor.innerHTML = saved;
-    } else {
-        // التصميم الافتراضي الأنيق الذي سيجده الآدمن جاهزاً للتعديل
-        editor.innerHTML = `<div style="text-align: center;">
-            <h1 style="margin-bottom: 5px;">مكوى رويال VIP</h1>
-            <p style="margin-top: 0; font-size: 14px; color: #555;">لمسة ملكية تليق بك</p>
-            <hr style="border: 2px solid #000; margin: 15px 0;">
-            <div style="display: flex; justify-content: space-between; text-align: right; font-size: 16px; font-weight:bold;">
-                <div>رقم الطلب اليومي: <span style="font-size:24px;">[رقم_الطلب]</span></div>
-                <div>[اليوم] - [الوقت]</div>
-            </div>
-            <div style="text-align: right; font-size: 18px; margin-top: 15px;"><strong>السيد/ة:</strong> [اسم_الزبون]</div>
-            [جدول_المبيعات]
-            <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-top: 15px; border-top: 1px solid #000; padding-top:10px;">
-                <div>المجموع الكلي: [المجموع] د.ع</div>
-                <div style="color: green;">العربون: [العربون] د.ع</div>
-                <div style="color: red;">المطلوب عند الاستلام: [المتبقي] د.ع</div>
-            </div>
-            <hr style="border: 1px dashed #000; margin: 20px 0;">
-            <p style="font-size: 14px;">العنوان: الكوفة - النجف الأشرف | هاتف: 07800000000</p>
-        </div>`;
+    window.showAlert('جاري رفع ومزامنة البيانات في السحابة... ⏳', 'warning');
+    saveDataToCloud(); // يجبر الصندوق على رفع المتغيرات
+    if(window.processBlackBox) window.processBlackBox(); // يفرغ الصندوق الأسود
+    setTimeout(() => { window.showAlert('تمت المزامنة بنجاح وحفظ عملك.', 'success'); }, 1500);
+};
+
+// 2. ميزة حذف العناصر بزر Backspace
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'textarea') return;
+        if (canvasEditor && canvasEditor.getActiveObject() && canvasEditor.getActiveObject().isEditing) return;
+
+        if (canvasEditor && canvasEditor.getActiveObjects().length > 0) {
+            e.preventDefault(); 
+            canvasEditor.getActiveObjects().forEach(obj => canvasEditor.remove(obj));
+            canvasEditor.discardActiveObject();
+            canvasEditor.renderAll();
+        }
     }
+});
+
+function updatePropsPanel(e) {
+    const panel = document.getElementById('fabric-props-panel');
+    panel.style.opacity = '1';
+    panel.style.pointerEvents = 'auto';
+    
+    const obj = e.selected[0];
+    if(!obj) return;
+
+    document.getElementById('fab-fill').value = obj.fill || '#000000';
+    document.getElementById('fab-stroke').value = obj.stroke || '#000000';
+    document.getElementById('fab-strokeWidth').value = obj.strokeWidth || 0;
+
+    const textProps = document.getElementById('fab-text-props');
+    if (obj.type === 'i-text' || obj.type === 'text') {
+        textProps.style.opacity = '1'; textProps.style.pointerEvents = 'auto';
+        document.getElementById('fab-font').value = obj.fontFamily || 'Cairo';
+    } else {
+        textProps.style.opacity = '0.3'; textProps.style.pointerEvents = 'none';
+    }
+}
+
+// 3. تحديث خصائص العنصر (مع محرك ذكي لتحميل الخطوط)
+window.fabUpdateProp = (prop, val) => {
+    const obj = canvasEditor.getActiveObject();
+    if (obj) {
+        if (prop === 'fontFamily') {
+            // إجبار المتصفح على تحميل الخط قبل تطبيقه لمنع مشكلة الخطوط العالقة
+            document.fonts.load(`16px "${val}"`).then(() => {
+                obj.set(prop, val);
+                canvasEditor.renderAll();
+            }).catch((err) => {
+                // في حالة عدم توفر الإنترنت لتنزيل الخط، سيطبق المتصفح أقرب خط مشابه
+                obj.set(prop, val);
+                canvasEditor.renderAll();
+            });
+        } else {
+            obj.set(prop, val);
+            if (prop === 'stroke' && (!obj.strokeWidth || obj.strokeWidth === 0)) {
+                obj.set('strokeWidth', 2);
+                document.getElementById('fab-strokeWidth').value = 2;
+            }
+            canvasEditor.renderAll();
+        }
+    }
+};
+
+window.fabToggleStyle = (prop, onVal, offVal) => {
+    const obj = canvasEditor.getActiveObject();
+    if(obj && obj.set) {
+        let current = obj[prop];
+        obj.set(prop, current === onVal ? offVal : onVal);
+        canvasEditor.renderAll();
+    }
+};
+
+window.fabBringForward = () => { const obj = canvasEditor.getActiveObject(); if(obj) { canvasEditor.bringForward(obj); canvasEditor.renderAll(); }};
+window.fabSendBackward = () => { const obj = canvasEditor.getActiveObject(); if(obj) { canvasEditor.sendBackwards(obj); canvasEditor.renderAll(); }};
+window.fabDeleteSelected = () => { const objects = canvasEditor.getActiveObjects(); objects.forEach(obj => canvasEditor.remove(obj)); canvasEditor.discardActiveObject(); canvasEditor.renderAll(); };
+
+// 4. الإدراج المباشر في منتصف الورقة (حل مشكلة عدم الرسبنة)
+window.fabricAddText = (textStr = 'نص جديد', size = 20, color = '#111111') => {
+    const text = new fabric.IText(textStr, {
+        left: 559 / 2, top: 793 / 2, // منتصف الورقة تماماً
+        originX: 'center', originY: 'center',
+        fontFamily: 'Cairo', fill: color, fontSize: size, direction: 'rtl', textAlign: 'right'
+    });
+    canvasEditor.add(text); canvasEditor.setActiveObject(text);
+    canvasEditor.renderAll(); // إجبار التحديث
+};
+
+// ==========================================
+// محرك الأشكال الهندسية الشامل المتطور (30+ شكل)
+// ==========================================
+window.fabricAddShape = (type) => {
+    let shape;
+    // نقطة المنتصف المحسوبة لورقة الـ A5
+    let centerX = 559 / 2;
+    let centerY = 793 / 2;
+    let commonOpts = { left: centerX, top: centerY, originX: 'center', originY: 'center', fill: '#e6e6e6', stroke: '#111111', strokeWidth: 0 };
+    
+    // المضلعات الشائعة المبرمجة بالنقاط (Points)
+    const createPolygon = (points, scale = 1) => {
+        let scaledPoints = points.map(p => ({ x: p.x * scale, y: p.y * scale }));
+        return new fabric.Polygon(scaledPoints, commonOpts);
+    };
+
+    switch(type) {
+        // --- الأساسيات ---
+        case 'rect': shape = new fabric.Rect({ ...commonOpts, width: 150, height: 80 }); break;
+        case 'square': shape = new fabric.Rect({ ...commonOpts, width: 100, height: 100 }); break;
+        case 'rounded-rect': shape = new fabric.Rect({ ...commonOpts, width: 150, height: 80, rx: 15, ry: 15 }); break;
+        case 'circle': shape = new fabric.Circle({ ...commonOpts, radius: 50 }); break;
+        case 'ellipse': shape = new fabric.Ellipse({ ...commonOpts, rx: 75, ry: 40 }); break;
+        case 'line': shape = new fabric.Line([-150, 0, 150, 0], { ...commonOpts, strokeWidth: 3, fill: null }); break;
+        case 'dashed-line': shape = new fabric.Line([-150, 0, 150, 0], { ...commonOpts, strokeWidth: 3, fill: null, strokeDashArray: [10, 10] }); break;
+        
+        // --- المضلعات ---
+        case 'triangle': shape = new fabric.Triangle({ ...commonOpts, width: 100, height: 100 }); break;
+        case 'right-triangle': shape = createPolygon([{x:0, y:0}, {x:0, y:100}, {x:100, y:100}]); break;
+        case 'diamond': shape = createPolygon([{x:50, y:0}, {x:100, y:50}, {x:50, y:100}, {x:0, y:50}]); break;
+        case 'pentagon': shape = createPolygon([{x:50, y:0}, {x:100, y:38}, {x:81, y:100}, {x:19, y:100}, {x:0, y:38}]); break;
+        case 'hexagon': shape = createPolygon([{x:50, y:0}, {x:100, y:25}, {x:100, y:75}, {x:50, y:100}, {x:0, y:75}, {x:0, y:25}]); break;
+        case 'octagon': shape = createPolygon([{x:30, y:0}, {x:70, y:0}, {x:100, y:30}, {x:100, y:70}, {x:70, y:100}, {x:30, y:100}, {x:0, y:70}, {x:0, y:30}]); break;
+        case 'parallelogram': shape = createPolygon([{x:25, y:0}, {x:125, y:0}, {x:100, y:75}, {x:0, y:75}]); break;
+        case 'trapezoid': shape = createPolygon([{x:25, y:0}, {x:75, y:0}, {x:100, y:75}, {x:0, y:75}]); break;
+
+        // --- النجوم والرموز (Vector Paths) ---
+        case 'star': 
+            shape = createPolygon([{x:50,y:0},{x:61,y:35},{x:98,y:35},{x:68,y:57},{x:79,y:91},{x:50,y:70},{x:21,y:91},{x:32,y:57},{x:2,y:35},{x:39,y:35}]); 
+            break;
+        case 'star-6': 
+            shape = new fabric.Path('M 50 0 L 65 25 L 93 25 L 79 50 L 93 75 L 65 75 L 50 100 L 35 75 L 7 75 L 21 50 L 7 25 L 35 25 Z', commonOpts);
+            shape.scale(1.2);
+            break;
+        case 'heart':
+            shape = new fabric.Path('M 50 30 C 50 30 45 0 20 0 C -5 0 -5 35 -5 35 C -5 60 25 80 50 100 C 75 80 105 60 105 35 C 105 35 105 0 80 0 C 55 0 50 30 50 30 Z', commonOpts);
+            break;
+        case 'shield':
+            shape = new fabric.Path('M 10 0 L 90 0 L 100 40 C 100 70 50 100 50 100 C 50 100 0 70 0 40 Z', commonOpts);
+            break;
+        case 'tag':
+            shape = new fabric.Path('M 100 0 L 40 0 L 0 40 L 60 100 L 100 60 Z M 80 20 A 5 5 0 1 0 80 21 Z', commonOpts);
+            break;
+        case 'bubble':
+            shape = new fabric.Path('M 0 0 L 100 0 L 100 70 L 60 70 L 30 100 L 30 70 L 0 70 Z', commonOpts);
+            break;
+        case 'plus': shape = createPolygon([{x:35,y:0},{x:65,y:0},{x:65,y:35},{x:100,y:35},{x:100,y:65},{x:65,y:65},{x:65,y:100},{x:35,y:100},{x:35,y:65},{x:0,y:65},{x:0,y:35},{x:35,y:35}]); break;
+        case 'minus': shape = new fabric.Rect({ ...commonOpts, width: 100, height: 30 }); break;
+
+        // --- الأسهم ---
+        case 'arrow-right': shape = createPolygon([{x:0,y:25},{x:50,y:25},{x:50,y:0},{x:100,y:50},{x:50,y:100},{x:50,y:75},{x:0,y:75}]); break;
+        case 'arrow-left': shape = createPolygon([{x:100,y:25},{x:50,y:25},{x:50,y:0},{x:0,y:50},{x:50,y:100},{x:50,y:75},{x:100,y:75}]); break;
+        case 'arrow-up': shape = createPolygon([{x:25,y:100},{x:25,y:50},{x:0,y:50},{x:50,y:0},{x:100,y:50},{x:75,y:50},{x:75,y:100}]); break;
+        case 'arrow-down': shape = createPolygon([{x:25,y:0},{x:25,y:50},{x:0,y:50},{x:50,y:100},{x:100,y:50},{x:75,y:50},{x:75,y:0}]); break;
+    }
+
+    if (shape) { 
+        canvasEditor.add(shape); 
+        canvasEditor.setActiveObject(shape); 
+        canvasEditor.renderAll();
+    }
+};
+
+// ==========================================
+// محرك إدراج الصور والـ Vector SVG المتطور
+// ==========================================
+window.fabricAddImage = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+
+    // السحر هنا: قراءة الـ SVG كـ كود فيكتور (Vector) لضمان عدم التبكسل عند التكبير!
+    if (file.type === 'image/svg+xml') {
+        reader.onload = function(f) {
+            fabric.loadSVGFromString(f.target.result, function(objects, options) {
+                // تجميع طبقات الـ SVG ككائن واحد متماسك
+                let svgObj = fabric.util.groupSVGElements(objects, options);
+                svgObj.set({ left: 559 / 2, top: 793 / 2, originX: 'center', originY: 'center' });
+                svgObj.scaleToWidth(150);
+                canvasEditor.add(svgObj);
+                canvasEditor.setActiveObject(svgObj);
+                canvasEditor.renderAll();
+            });
+        };
+        reader.readAsText(file); // نقرأه كنص للـ SVG
+    } else {
+        // للصور العادية PNG/JPG
+        reader.onload = function(f) {
+            fabric.Image.fromURL(f.target.result, function(img) {
+                img.set({ left: 559 / 2, top: 793 / 2, originX: 'center', originY: 'center' });
+                img.scaleToWidth(150); 
+                canvasEditor.add(img);
+                canvasEditor.setActiveObject(img);
+                canvasEditor.renderAll();
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // تفريغ الحقل لتتمكن من إضافة نفس الصورة مرتين إذا أردت
+    e.target.value = ''; 
+};
+// ==========================================
+// --- محرك طباعة وحساب تقرير الشفت (Z-Report) ---
+// ==========================================
+window.openShiftReportModal = () => {
+    document.getElementById('hamburger-menu').classList.remove('show');
+    
+    // جلب الوقت الحالي كافتراضي لنهاية الشفت
+    let now = new Date();
+    document.getElementById('shift-end-time').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    document.getElementById('shift-start-time').value = "08:00"; // افتراضي بداية الدوام
+    
+    document.getElementById('modal-shift-report').style.display = 'flex';
+};
+
+window.printShiftReport = () => {
+    const cashierName = document.getElementById('shift-cashier-name').value || 'كاشير';
+    const startTimeStr = document.getElementById('shift-start-time').value;
+    const endTimeStr = document.getElementById('shift-end-time').value;
+
+    if(!startTimeStr || !endTimeStr) return window.showAlert('يرجى تحديد وقت استلام وتسليم الشفت', 'warning');
+
+    // جلب تصميم الشفت من السحابة
+    let savedDesign = localData.settings?.shiftTemplate || localStorage.getItem('royal_shift_template');
+    if (!savedDesign) return window.showAlert('يرجى تصميم تقرير الشفت من الاستوديو في لوحة الآدمن أولاً!', 'error');
+
+    let tCash = 0, tElec = 0, tExp = 0;
+    let todayDate = getRealTime().date;
+    
+    // دالة هندسية لمقارنة الأوقات بنظام 24 ساعة
+    const isTimeInRange = (timestamp) => {
+        let dateObj = new Date(timestamp);
+        let hour = String(dateObj.getHours()).padStart(2, '0');
+        let min = String(dateObj.getMinutes()).padStart(2, '0');
+        let timeFormatted = `${hour}:${min}`;
+        return timeFormatted >= startTimeStr && timeFormatted <= endTimeStr;
+    };
+
+    // 1. حساب فواتير الشفت الحالي
+    (localData.invoices || []).forEach(inv => {
+        if(inv.date === todayDate && isTimeInRange(inv.timestamp)) {
+            if (inv.type === 'active' && inv.customer && inv.customer.paid > 0) tCash += inv.customer.paid;
+            else if (inv.type === 'cash') tCash += inv.total;
+            else if (inv.type === 'electronic') tElec += inv.total;
+            else if (inv.type === 'archived' && inv.customer) tCash += (inv.customer.paid || 0); 
+        }
+    });
+    
+    // 2. حساب المصروفات
+    (localData.expenses || []).forEach(exp => {
+        if(exp.date === todayDate && isTimeInRange(exp.timestamp)) {
+            tExp += exp.amount;
+        }
+    });
+
+    // 3. حساب الدفعات المستقلة والاشتراكات
+    (localData.payments || []).forEach(pay => {
+        if(pay.date === todayDate && isTimeInRange(pay.timestamp)) {
+            if (pay.type === 'دفع إلكتروني (متبقي طلب)') tElec += pay.amount;
+            else if (pay.type === 'إلغاء اشتراك VIP') tCash -= pay.amount;
+            else if (pay.type !== 'دفع مختلط (VIP + كاش)') tCash += pay.amount; 
+        }
+    });
+
+    let netCash = tCash - tExp; // الصافي الواجب تسليمه للإدارة
+
+    // تجهيز الطباعة الصامتة
+    let hiddenCanvas = document.createElement('canvas');
+    hiddenCanvas.id = 'hidden-shift-canvas';
+    let printCanvas = new fabric.StaticCanvas(hiddenCanvas, { width: 559, height: 793 });
+
+    printCanvas.loadFromJSON(savedDesign, function() {
+        // 1. استبدال النصوص والمتغيرات
+        printCanvas.getObjects().forEach(obj => {
+            obj.set({ objectCaching: false });
+            if (obj.type === 'i-text' || obj.type === 'text') {
+                let oldText = obj.text;
+                let newText = obj.text
+                    .replace('[اسم_الكاشير]', cashierName)
+                    .replace('[بداية_الشفت]', startTimeStr)
+                    .replace('[نهاية_الشفت]', endTimeStr)
+                    .replace('[اليوم]', todayDate)
+                    .replace('[كاش_المبيعات]', tCash.toLocaleString() + ' د.ع')
+                    .replace('[الكتروني]', tElec.toLocaleString() + ' د.ع')
+                    .replace('[المصروفات]', tExp.toLocaleString() + ' د.ع')
+                    .replace('[صافي_الصندوق]', netCash.toLocaleString() + ' د.ع');
+
+                if (newText.trim() === '') {
+                     printCanvas.remove(obj);
+                } else if (oldText !== newText) {
+                     if (obj.textAlign === 'right' && obj.originX !== 'right') {
+                         let rightEdge = obj.left + (obj.width * obj.scaleX / 2);
+                         obj.set({ originX: 'right', left: rightEdge });
+                     } else if (obj.textAlign === 'left' && obj.originX !== 'left') {
+                         let leftEdge = obj.left - (obj.width * obj.scaleX / 2);
+                         obj.set({ originX: 'left', left: leftEdge });
+                     }
+                     obj.set('text', newText);
+                }
+            }
+        });
+
+        // =========================================================
+        // 🚀 السحر الحقيقي: إجبار المتصفح على تحميل الخطوط لتقرير الشفت
+        // =========================================================
+        document.fonts.ready.then(() => {
+            
+            // إعادة حساب الأبعاد بعد التأكد من تحميل الخطوط
+            printCanvas.getObjects().forEach(obj => {
+                if (obj.type === 'i-text' || obj.type === 'text') {
+                    obj.initDimensions();
+                    obj.setCoords();
+                }
+            });
+
+            printCanvas.renderAll();
+            let backgroundImg = printCanvas.toDataURL({ format: 'png', multiplier: 4 });
+
+            const finalHTML = `
+            <!DOCTYPE html>
+            <html lang="ar" dir="rtl">
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Tajawal:wght@400;700;900&family=Alexandria:wght@400;700;900&family=Aref+Ruqaa:wght@400;700&family=Amiri:wght@400;700&family=Almarai:wght@400;700;800&family=Changa:wght@400;700&family=El+Messiri:wght@400;700&family=Lalezar&family=Lateef&family=Mada:wght@400;700&family=Markazi+Text:wght@400;600;700&family=Rakkas&family=Reem+Kufi:wght@400;700&family=Lemonada:wght@400;700&family=Kufam:wght@400;700&display=swap');
+                    @page { size: A5; margin: 0; }
+                    body { margin: 0; padding: 0; width: 148mm; height: 210mm; position: relative; overflow: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .designer-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+                </style>
+            </head>
+            <body>
+                <div class="designer-bg" style="display: flex; justify-content: center; align-items: center;">
+                    <img src="${backgroundImg}" style="width: 94%; height: 94%; object-fit: contain;">
+                </div>
+            </body>
+            </html>`;
+
+            if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('print-silent', finalHTML);
+            } else {
+                printViaBrowser(finalHTML);
+            }
+        }); // نهاية الانتظار للخطوط
+    });
+    
+    document.getElementById('modal-shift-report').style.display = 'none';
+    window.showAlert('جاري تجهيز وطباعة تقرير الشفت...', 'success');
+};
+
+// =========================================================
+// --- الطباعة داخل المتصفح (PWA/آيفون) عبر إطار مطابق لمقاس A5 ---
+// =========================================================
+function printViaBrowser(htmlContent) {
+    let frame;
+    try {
+        frame = document.createElement('iframe');
+        frame.setAttribute('aria-hidden', 'true');
+        // 559×793 هو مقاس A5 بدقة 96dpi، وهو نفس مقاس قماش التصميم
+        frame.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:559px;height:793px;border:0;';
+        document.body.appendChild(frame);
+
+        const doc = frame.contentWindow.document;
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        let dispatched = false;
+        const dispatch = () => {
+            if (dispatched) return;
+            dispatched = true;
+            setTimeout(() => {
+                try {
+                    frame.contentWindow.focus();
+                    frame.contentWindow.print();
+                } catch (err) {
+                    window.showAlert('تعذّر إرسال الطباعة لهذا المتصفح!', 'error');
+                }
+                setTimeout(() => { if (frame.parentNode) frame.parentNode.removeChild(frame); }, 2500);
+            }, 350);
+        };
+
+        // انتظر تحميل خطوط التصميم داخل الإطار، مع سقف زمني آمن يمنع التعليق
+        if (doc.fonts && doc.fonts.ready && typeof doc.fonts.ready.then === 'function') {
+            doc.fonts.ready.then(dispatch).catch(dispatch);
+        }
+        setTimeout(dispatch, 2500);
+    } catch (err) {
+        if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
+        window.showAlert('متصفحك لا يسمح بفتح نافذة الطباعة!', 'error');
+    }
+}
+
+// =========================================================
+// --- محرك الطباعة الذكي (يدمج التصميم مع البيانات الحية) ---
+// =========================================================
+window.printInvoice = (invoice) => {
+    
+    // 1. جلب التصميم المحفوظ
+    let savedDesign = localData.settings?.invoiceTemplate || localStorage.getItem('royal_fabric_template');
+    if (!savedDesign) return window.showAlert('يرجى تصميم فاتورة أولاً من لوحة الآدمن!', 'error');
+
+    // 2. إنشاء قماش مخفي (Off-screen Canvas) لمعالجة التصميم
+    let hiddenCanvas = document.createElement('canvas');
+    hiddenCanvas.id = 'hidden-print-canvas';
+    let printCanvas = new fabric.StaticCanvas(hiddenCanvas, { width: 559, height: 793 });
+
+    printCanvas.loadFromJSON(savedDesign, function() {
+        
+        let tableAnchorY = 300; 
+        let tableBottomY = 550; 
+
+        // 1. تجهيز المتغيرات ودمج عملة (د.ع) برمجياً
+        let custName = invoice.customer ? invoice.customer.name : 'عميل نقدي';
+        let custPhone = invoice.customer && invoice.customer.phone ? invoice.customer.phone : '---';
+        let pickupStr = (invoice.customer && invoice.customer.pickupDate) ? `${invoice.customer.pickupDate} ${invoice.customer.pickupTime || ''}` : 'غير محدد';
+        let notesStr = invoice.notes ? invoice.notes : '';
+        let dailyNum = invoice.dailyNumber ? invoice.dailyNumber.toString().padStart(4, '0') : invoice.id.slice(-4);
+        let formattedTime = new Date(invoice.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        
+        let totalStr = invoice.total.toLocaleString() + ' د.ع';
+        let deposit = invoice.customer ? invoice.customer.paid.toLocaleString() + ' د.ع' : '0 د.ع';
+        let remaining = invoice.customer ? invoice.customer.remaining.toLocaleString() + ' د.ع' : invoice.total.toLocaleString() + ' د.ع';
+        
+        // الذكاء التجاري لمتغير الخصم
+        let discountVal = invoice.discount || 0;
+        let discountStr = discountVal > 0 ? `الخصم: ${discountVal.toLocaleString()} د.ع` : '';
+
+        // 2. محرك قراءة الإحداثيات واستبدال المتغيرات 
+        printCanvas.getObjects().forEach(obj => {
+            obj.set({ objectCaching: false });
+            if (obj.type === 'i-text' || obj.type === 'text') {
+                if (obj.text.includes('[بداية_الجدول]')) {
+                    tableAnchorY = obj.top;
+                    printCanvas.remove(obj);
+                } else if (obj.text.includes('[نهاية_الجدول]')) {
+                    tableBottomY = obj.top;
+                    printCanvas.remove(obj);
+                } else {
+                    let oldText = obj.text;
+                    let newText = obj.text
+                        .replace('[اسم_الزبون]', custName)
+                        .replace('[رقم_الهاتف]', custPhone)
+                        .replace('[رقم_الطلب]', dailyNum)
+                        .replace('[اليوم]', invoice.date)
+                        .replace('[الوقت]', formattedTime)
+                        .replace('[موعد_الاستلام]', pickupStr)
+                        .replace('[المجموع]', totalStr)
+                        .replace('[العربون]', deposit)
+                        .replace('[المتبقي]', remaining)
+                        .replace('[الملاحظات]', notesStr);
+
+                    if (newText.includes('[الخصم_ان_وجد]')) {
+                        if (discountVal > 0) newText = newText.replace('[الخصم_ان_وجد]', discountStr);
+                        else newText = newText.replace('[الخصم_ان_وجد]', '');
+                    }
+
+                    if (newText.trim() === '') {
+                         printCanvas.remove(obj);
+                    } else if (oldText !== newText) {
+                         if (obj.textAlign === 'right' && obj.originX !== 'right') {
+                             let rightEdge = obj.left + (obj.width * obj.scaleX / 2);
+                             obj.set({ originX: 'right', left: rightEdge });
+                         } else if (obj.textAlign === 'left' && obj.originX !== 'left') {
+                             let leftEdge = obj.left - (obj.width * obj.scaleX / 2);
+                             obj.set({ originX: 'left', left: leftEdge });
+                         }
+                         obj.set('text', newText);
+                    }
+                }
+            }
+        });
+
+        // =========================================================
+        // 🚀 السحر الحقيقي: إجبار المتصفح على تحميل الخطوط قبل التقاط الصورة 🚀
+        // =========================================================
+        document.fonts.ready.then(() => {
+            
+            // إعادة ضبط الأبعاد بدقة بعد التأكد من تحميل خط "كايرو"
+            printCanvas.getObjects().forEach(obj => {
+                if (obj.type === 'i-text' || obj.type === 'text') {
+                    obj.initDimensions();
+                    obj.setCoords();
+                }
+            });
+
+            // حساب المساحة المتاحة للجدول
+            let availableHeight = tableBottomY - tableAnchorY;
+            if(availableHeight < 50) availableHeight = 250; 
+
+            printCanvas.renderAll();
+            
+            // التقاط الصورة الآن بأمان تام والخطوط محملة 100%
+            let backgroundImg = printCanvas.toDataURL({ format: 'png', multiplier: 4 });
+        // 3. بناء صفوف الجدول (الجدول المثالي كما هو بدون تغيير)
+        let itemsRows = invoice.items.map((item, index) => `
+            <tr>
+                <td>${String(index + 1).padStart(2, '0')}</td>
+                <td style="text-align: right; padding-right: 15px;">${item.name}</td>
+                <td>${item.serviceName}</td>
+                <td>${item.price.toLocaleString()}</td>
+                <td style="font-weight:bold;">${item.qty}</td>
+                <td style="font-weight: 700;">${(item.price * item.qty).toLocaleString()}</td>
+            </tr>
+        `).join('');
+
+        // 4. دمج التصميم (HTML) مع استدعاء شامل لجميع الخطوط
+        const finalHTML = `
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                /* حقن جميع الخطوط لضمان عدم تخريب التصميم عند الطباعة */
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Tajawal:wght@400;700;900&family=Alexandria:wght@400;700;900&family=Aref+Ruqaa:wght@400;700&family=Amiri:wght@400;700&family=Almarai:wght@400;700;800&family=Changa:wght@400;700&family=El+Messiri:wght@400;700&family=Lalezar&family=Lateef&family=Mada:wght@400;700&family=Markazi+Text:wght@400;600;700&family=Rakkas&family=Reem+Kufi:wght@400;700&family=Lemonada:wght@400;700&family=Kufam:wght@400;700&display=swap');
+                
+                @page { size: A5; margin: 0; }
+                body { margin: 0; padding: 0; width: 148mm; height: 210mm; position: relative; overflow: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                .designer-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+                
+                #smart-table-wrapper { 
+                    position: absolute; 
+                    left: 10mm; 
+                    right: 10mm; 
+                    top: ${tableAnchorY}px; 
+                    height: ${availableHeight}px; 
+                    z-index: 10; 
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: flex-start; /* التعديل الحاسم: الجدول يبدأ دائماً من الأعلى ولا ينزل للأسفل أبداً! */
+                }
+
+                #smart-table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 3px 6px; 
+                    font-family: 'Markazi Text', serif;
+                    font-size: 17px;
+                    color: #000;
+                    transform-origin: top center; /* الانكماش يكون من الأعلى للأسفل */
+                }
+                #smart-table th, #smart-table td {
+                    border: 1px solid #000; 
+                    border-radius: 8px; 
+                    padding: 5px 4px;
+                    text-align: center;
+                }
+                #smart-table th { background-color: #a0a0a0; font-weight: 700; font-size: 18px; }
+                #smart-table td { background-color: #f4f4f4; }
+            </style>
+        </head>
+        <body>
+                <div class="designer-bg" style="display: flex; justify-content: center; align-items: center;">
+                    <img src="${backgroundImg}" style="width: 94%; height: 94%; object-fit: contain;">
+                </div>
+            
+            <div id="smart-table-wrapper">
+                <table id="smart-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">ت</th>
+                            <th style="width: 30%; text-align: right; padding-right: 15px;">اسم القطعة</th>
+                            <th style="width: 22%;">نوع الخدمة</th>
+                            <th style="width: 13%;">السعر</th>
+                            <th style="width: 10%;">العدد</th>
+                            <th style="width: 20%;">المجموع</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsRows}</tbody>
+                </table>
+            </div>
+
+            <script>
+                // تأخير بسيط لضمان تحميل الخطوط قبل قياس أبعاد الجدول
+                setTimeout(function() {
+                    var wrapper = document.getElementById('smart-table-wrapper');
+                    var table = document.getElementById('smart-table');
+                    
+                    var availableH = wrapper.clientHeight;
+                    var tableH = table.offsetHeight;
+                    
+                    if (tableH > availableH) {
+                        var scaleRatio = availableH / tableH;
+                        table.style.transform = 'scale(' + scaleRatio + ')';
+                    }
+                }, 150);
+            </script>
+        </body>
+        </html>
+        `;
+
+            // 6. الإرسال للطابعة: صامتة داخل Electron، وإطار مطابق لـ A5 على المتصفح
+            if (typeof require !== 'undefined') {
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('print-silent', finalHTML);
+            } else {
+                printViaBrowser(finalHTML);
+            }
+        }); // نهاية انتظار الخطوط
+
+    });
 };
 
 // ==========================================
@@ -2712,7 +3637,7 @@ window.executeSubDelete = () => {
     window.recalculateDailySales();
     updateUI();
     if(window.renderCashierSubs) window.renderCashierSubs();
-    if(document.getElementById('admin-screen').classList.contains('active-screen')) window.updateAdminDashboard();
+    if(isAdminActive()) window.updateAdminDashboard();
     
     document.getElementById('modal-delete-sub-warning').style.display = 'none'; 
     window.openCashierSubs();
@@ -2957,49 +3882,85 @@ window.renderLogs = () => {
     });
 };
 
-// ==========================================================
-// ⚠️ الزر النووي: تصفير قاعدة البيانات بالكامل (استخدام لمرة واحدة فقط) ⚠️
-// ==========================================================
-window.nukeDatabaseAndReset = () => {
-    let confirmNuke = prompt("تحذير خطير: هذا الإجراء سيمسح جميع البيانات (الفواتير، الزبائن، المحفظة، السجل، الديون). اكتب 'نعم' للتأكيد:");
+// ==========================================
+// محرك استقبال التحديثات (واجهة الكاشير)
+// ==========================================
+if (typeof require !== 'undefined') {
+    const { ipcRenderer } = require('electron');
     
-    if (confirmNuke === 'نعم') {
-        import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js").then(({ set, ref }) => {
-            // نكتب بيانات فارغة/أساسية فوق كل مسارات النظام
-            const resetData = {
-                catalog: [
-                    { id: 'suit', name: 'بدلة رجالية', icon: 'fa-user-tie', prices: { wash_iron: 8000, iron_only: 5000 } },
-                    { id: 'abaya', name: 'عباءة نسائية', icon: 'fa-person-dress', prices: { wash_iron: 6000, iron_only: 4000 } },
-                    { id: 'arabic', name: 'الزي العربي', icon: 'fa-user-nurse', prices: { wash_iron: 4000, iron_only: 3000 } },
-                    { id: 'military', name: 'بدلة عسكرية', icon: 'fa-person-military-rifle', prices: { wash_iron: 6000, iron_only: 5000 } },
-                    { id: 'coat', name: 'كوت', icon: 'fa-user-secret', prices: { wash_iron: 6000, iron_only: 4000 } },
-                    { id: 'shirt', name: 'قميص', icon: 'fa-shirt', prices: { wash_iron: 3000, iron_only: 2000 } }
-                ],
-                invoices: {},
-                expenses: {},
-                operatingCosts: {},
-                debts: {},
-                logs: {},
-                partnerTx: {},
-                subscriptions: {},
-                payments: {},
-                settings: { name: "مكوى رويال VIP", phone: "07800000000", address: "الكوفة، النجف الأشرف" },
-                lastDate: new Date().toDateString()
-            };
+    // عند وجود تحديث جديد (استقبال التفاصيل)
+    ipcRenderer.on('update-available', (event, info) => {
+        const modal = document.getElementById('update-modal');
+        if (modal) {
+            let versionText = typeof info === 'string' ? info : info.version;
+            // سحب التفاصيل من GitHub، وإذا لم تكتب أنت شيئاً سيضع نصاً افتراضياً
+            let notesText = typeof info === 'object' && info.releaseNotes ? info.releaseNotes : '<li>تحسينات شاملة على أداء واستقرار النظام.</li><li>تحديثات أمنية وإصلاحات خلفية.</li>';
+            
+            document.getElementById('update-version-text').innerText = `إصدار جديد (v${versionText}) متاح للتحميل!`;
+            document.getElementById('update-release-notes').innerHTML = `<strong style="color:var(--gold);">أبرز ما في هذا التحديث:</strong><div style="margin-top: 5px; line-height: 1.6;">${notesText}</div>`;
+            modal.style.display = 'flex';
+        }
+    });
 
-            set(ref(window.db || database, 'royal_data'), resetData)
-                .then(() => {
-                    // تصفير الذاكرة المحلية للكاش
-                    localStorage.removeItem('cart_draft');
-                    alert("💥 تم تدمير وتصفير قاعدة البيانات بنجاح! سيتم إعادة تحميل النظام الآن.");
-                    window.location.reload();
-                })
-                .catch((error) => {
-                    alert("حدث خطأ أثناء التصفير: " + error.message);
-                });
-        });
-    } else {
-        alert("تم إلغاء عملية التصفير.");
+    // زر التجاهل
+    document.getElementById('btn-ignore-update')?.addEventListener('click', () => {
+        document.getElementById('update-modal').style.display = 'none';
+        // ستنبثق النافذة مجدداً بعد ساعة أو عند إعادة تشغيل الحاسبة
+    });
+
+    // زر التحميل
+    document.getElementById('btn-download-update')?.addEventListener('click', () => {
+        ipcRenderer.send('start-download'); // إرسال الأمر للرادار
+        document.getElementById('btn-download-update').style.display = 'none';
+        document.getElementById('btn-ignore-update').style.display = 'none';
+        document.getElementById('update-progress-container').style.display = 'block';
+        document.getElementById('update-version-text').innerText = 'جاري التحميل... يمكنك إكمال البيع ولن يتم الإغلاق الآن';
+    });
+
+    // شريط التقدم الحي مع إظهار النسبة المئوية كأرقام
+    ipcRenderer.on('download-progress', (event, percent) => {
+        const bar = document.getElementById('update-progress-bar');
+        if(bar) bar.style.width = percent + '%';
+        
+        const textEl = document.getElementById('update-version-text');
+        if(textEl) textEl.innerText = `جاري التحميل... ${Math.floor(percent)}%`;
+    });
+
+    // التقاط الأخطاء لكي لا يبقى الزر معلقاً على الصفر
+    ipcRenderer.on('update-error', (event, errMsg) => {
+        const textEl = document.getElementById('update-version-text');
+        if(textEl) {
+            textEl.innerHTML = `<span style="color:var(--red-danger);">فشل التحديث! تأكد من الإنترنت أو أن المستودع على GitHub (Public).</span><br><small style="font-size:11px; color:#666;">الخطأ الفني: ${errMsg}</small>`;
+        }
+        
+        const container = document.getElementById('update-progress-container');
+        if(container) container.style.display = 'none';
+        
+        const btnIgnore = document.getElementById('btn-ignore-update');
+        if(btnIgnore) {
+            btnIgnore.style.display = 'block';
+            btnIgnore.innerText = 'إغلاق والمحاولة لاحقاً';
+        }
+    });
+
+    // عند اكتمال التحميل وجاهزية التثبيت
+    ipcRenderer.on('update-ready', () => {
+        document.getElementById('update-progress-container').style.display = 'none';
+        document.getElementById('update-version-text').innerText = '✅ اكتمل التحميل! سيتم إعادة تشغيل النظام وتحديثه الآن...';
+        
+        // إغلاق النظام وتثبيت التحديث خلال ثانيتين
+        setTimeout(() => {
+            ipcRenderer.send('install-update');
+        }, 2000);
+    });
+}
+// محرك التلميحات العائمة الذكية (Custom Tooltips Engine)
+document.addEventListener('mouseover', (e) => {
+    const target = e.target.closest('[title]');
+    if (target) {
+        // سحب النص من المربع الافتراضي ووضعه في التلميح الذكي
+        target.setAttribute('data-tooltip', target.getAttribute('title'));
+        // إزالة المربع الأصفر الافتراضي للويندوز/المتصفح
+        target.removeAttribute('title'); 
     }
-};
-window.filterLogs = () => window.renderLogs();
+});
