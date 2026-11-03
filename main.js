@@ -18,7 +18,7 @@ function createWindow() {
             nodeIntegration: true, // السماح باستخدام ميزات Node.js داخل HTML
             contextIsolation: false, // السماح للمتغيرات العامة بالانتقال (لتسهيل نقل كودك الحالي)
         },
-        icon: path.join(__dirname, 'icon.ico') // أيقونة التطبيق (سنضيفها لاحقاً)
+        icon: path.join(__dirname, 'icon.png') // أيقونة التطبيق (الشعار الأصلي)
     });
 
     // تحميل ملف الـ HTML الخاص بالنظام
