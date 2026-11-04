@@ -203,6 +203,11 @@ const availableIcons = [
     'fa-puzzle-piece', 'fa-umbrella', 'fa-glasses', 'fa-ring', 'fa-vest-patches'
 ];
 
+// قواعد البيانات القديمة تخزّن قائمة القطع بكائن (أو null إذا كانت فارغة)،
+// وكل من يقرأها يتوقع مصفوفة: توحيدها يمنع أزرار العرض/التعديل/الطباعة من التوقف بصمت.
+const asList = v => Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+const normalizeInvoice = inv => { if (inv) inv.items = asList(inv.items); return inv; };
+
 // دالة جلب البيانات من السحابة عند تشغيل النظام
 async function initializeDB() {
     try {
@@ -223,7 +228,7 @@ async function initializeDB() {
                 };
 
                 // مزامنة فورية ونقية للذاكرة المحلية
-                localData.invoices = cleanData(incomingData.invoices);
+                localData.invoices = cleanData(incomingData.invoices).map(normalizeInvoice);
                 localData.catalog = cleanData(incomingData.catalog);
                 localData.expenses = cleanData(incomingData.expenses);
                 localData.operatingCosts = Object.values(incomingData.operatingCosts || {}); // ليس لها ID
@@ -1167,9 +1172,12 @@ window.confirmOrder = () => {
     
     if(newDeposit > total) return window.showAlert('العربون أكبر من المبلغ الكلي!', 'error');
 
+    let savedInvoice = null;
+
     // === حالة (تعديل طلب موجود) ===
     if (editingInvoiceId) {
         const index = localData.invoices.findIndex(i => i.id === editingInvoiceId);
+        if (index === -1) return window.showAlert('لم أعد العثور على الطلب، حدّث الصفحة.', 'error');
         const oldInv = localData.invoices[index];
         const oldDeposit = oldInv.customer ? oldInv.customer.paid : 0;
 
@@ -1191,6 +1199,7 @@ window.confirmOrder = () => {
         localData.invoices[index].discount = discountVal;
         localData.invoices[index].notes = document.getElementById('cart-notes').value;
         localData.invoices[index].customer = { name, phone, pickupDate, pickupTime, paid: newDeposit, remaining: total - newDeposit };
+        savedInvoice = localData.invoices[index];
 
         // إعادة موازنة باقة VIP إن كانت الفاتورة مدفوعة منها، ثم تُكتب النتيجة مع الفاتورة
         window.rebalanceVipOnEdit(localData.invoices[index], total, vipSnapshot);
@@ -1236,6 +1245,7 @@ window.confirmOrder = () => {
         };
 
         localData.invoices.push(invoice);
+        savedInvoice = invoice;
         if(newDeposit > 0) localData.dailySalesCash += newDeposit;
 
         window.logAction('تسجيل طلب جديد', `رقم تسلسلي: ${dailyNum} | للزبون: ${name}`, newDeposit, invoice);
@@ -1254,9 +1264,9 @@ window.confirmOrder = () => {
     window.closeModals();
 
     // نقل الطباعة للخلفية (Asynchronous) لكي لا تجمد الواجهة وتمنع الإغلاق
-    if (!editingInvoiceId && document.getElementById('auto-print') && document.getElementById('auto-print').checked) {
-        // استخدام نسخة الفاتورة الجديدة للطباعة
-        let targetInvoice = invoice || localData.invoices[localData.invoices.length - 1];
+    if (savedInvoice && document.getElementById('auto-print') && document.getElementById('auto-print').checked) {
+        // الطباعة تُطبع من السجل الذي حُفظ للتو، لا من آخر عنصر في المصفوفة
+        const targetInvoice = savedInvoice;
         setTimeout(() => {
             try { window.printInvoice(targetInvoice); } catch(e) { console.error("خطأ في الطباعة", e); }
         }, 400); // تأخير بسيط جداً ريثما تنغلق النافذة بانسيابية
@@ -1361,24 +1371,27 @@ window.openPreviousInvoices = () => {
 
 window.editInvoice = (id) => {
     const invoice = localData.invoices.find(i => i.id === id);
-    if(invoice) {
-        if(invoice.type === 'credit') return window.showAlert('عذراً، لا يمكن تعديل فواتير البيع الآجل.', 'error');
-        
-        currentCart = JSON.parse(JSON.stringify(invoice.items));
-        document.getElementById('cart-notes').value = invoice.notes || '';
-        
-        // جلب الخصم القديم للفاتورة وعرضه
-        const discountInput = document.getElementById('cart-discount');
-        if (discountInput) discountInput.value = invoice.discount || 0;
-        
-        editingInvoiceId = invoice.id;
-        renderCart();
-        window.closeModals();
-        
-        // التدخل الجراحي: إخفاء زر (بيع) وإظهار زر (حفظ التعديلات)
-        document.getElementById('btn-main-checkout').style.display = 'none';
-        document.getElementById('btn-save-edit').style.display = 'flex';
-    }
+    if(!invoice) return window.showAlert('لم يتم العثور على الطلب في الذاكرة، حدّث الصفحة ثم حاول مجدداً.', 'error');
+    if(invoice.type === 'credit') return window.showAlert('عذراً، لا يمكن تعديل فواتير البيع الآجل.', 'error');
+
+    const items = asList(invoice.items);
+    if (items.length === 0) return window.showAlert('هذا الطلب لا يحتوي قطعاً قابلة للتعديل.', 'warning');
+
+    currentCart = JSON.parse(JSON.stringify(items));
+    document.getElementById('cart-notes').value = invoice.notes || '';
+    
+    // جلب الخصم القديم للفاتورة وعرضه
+    const discountInput = document.getElementById('cart-discount');
+    if (discountInput) discountInput.value = invoice.discount || 0;
+    
+    editingInvoiceId = invoice.id;
+    
+    // التدخل الجراحي: إخفاء زر (بيع) وإظهار زر (حفظ التعديلات) قبل رسم السلة،
+    // حتى لو تعطّل الرسم لسبب ما لا يبقى الكاشير بلا أزرار أو بحالة نصف محفوظة.
+    window.closeModals();
+    document.getElementById('btn-main-checkout').style.display = 'none';
+    document.getElementById('btn-save-edit').style.display = 'flex';
+    renderCart();
 };
 
 // يعيد موازنة خصم باقة VIP بعد تعديل مجاميع الفاتورة، بنفس قواعد الدفع عند الاستلام
@@ -1430,8 +1443,10 @@ window.deleteInvoice = (id) => {
         }
 
         // 2. حذف أي دفعات مستقلة (Payments) مرتبطة برقم هذه الفاتورة (لضمان رجوع المبيعات)
-        let dailyNumStr = String(inv.dailyNumber || inv.id);
-        let paymentsToDelete = (localData.payments || []).filter(p => p.details && (p.details.includes(inv.id) || p.details.includes(dailyNumStr)));
+        // المطابقة تكون مع قالب السطر حرفياً: البحث عن رقم قصير مثل "2" كان يحذف دفعات فواتير أخرى (مثال: طلب 21)
+        let dailyNumTok = String(inv.dailyNumber || inv.id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let numPattern = new RegExp('(طلب|فاتورة)\\s*' + dailyNumTok + '(\\s|$)');
+        let paymentsToDelete = (localData.payments || []).filter(p => p.details && (p.details.includes(inv.id) || numPattern.test(p.details)));
         
         paymentsToDelete.forEach(pDel => {
             const pIdx = localData.payments.findIndex(p => p.id === pDel.id);
@@ -1494,7 +1509,7 @@ window.viewInvoice = (id) => {
 
     const tbody = document.getElementById('view-inv-items');
     tbody.innerHTML = '';
-    invoice.items.forEach(item => {
+    asList(invoice.items).forEach(item => {
         tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${(item.price * item.qty).toLocaleString()}</td></tr>`;
     });
     document.getElementById('view-inv-total').innerText = invoice.total.toLocaleString();
@@ -3174,7 +3189,7 @@ window.printInvoice = (invoice) => {
             // التقاط الصورة الآن بأمان تام والخطوط محملة 100%
             let backgroundImg = printCanvas.toDataURL({ format: 'png', multiplier: 4 });
         // 3. بناء صفوف الجدول (الجدول المثالي كما هو بدون تغيير)
-        let itemsRows = invoice.items.map((item, index) => `
+        let itemsRows = asList(invoice.items).map((item, index) => `
             <tr>
                 <td>${String(index + 1).padStart(2, '0')}</td>
                 <td style="text-align: right; padding-right: 15px;">${item.name}</td>
@@ -3687,9 +3702,10 @@ window.calculateSubPayment = () => {
 
 window.confirmSubPayment = () => {
     const subId = document.getElementById('pay-sub-select').value;
-    const sub = localData.subscriptions.find(s => s.id === subId);
+    const sub = (localData.subscriptions || []).find(s => s.id === subId);
     const inv = localData.invoices.find(i => i.id === pendingPickupId);
-    if(!sub || !inv) return;
+    if(!subId) return window.showAlert('اختر اسم الزبون المشترك من القائمة أولاً.', 'warning');
+    if(!sub || !inv) return window.showAlert('لم أعد العثور على الطلب أو الباقة، حدّث الصفحة.', 'error');
     
     let invRemainingToPay = inv.customer ? inv.customer.remaining : inv.total;
     let subBalance = sub.totalValue - sub.consumedAmount;
@@ -3701,7 +3717,7 @@ window.confirmSubPayment = () => {
     if (cashAmount > 0) {
         window.showConfirm(`تنبيه شديد للكاشير ⚠️\n\nرصيد الباقة لا يكفي لتسديد كامل الفاتورة.\nتم خصم (${deductAmount.toLocaleString()} د.ع) من رصيد الباقة.\n\nيجب عليك استلام مبلغ (${cashAmount.toLocaleString()} د.ع) نقداً من الزبون الآن!\n\nهل استلمت المبلغ الكاش؟`, () => {
             window.executeSubPaymentFinal(subId, sub, inv, deductAmount, cashAmount);
-        });
+        }, 'تأكيد استلام الكاش', 'نعم، استلمت المبلغ');
     } else {
         // الرصيد كافٍ ولا يوجد دفع كاش
         window.executeSubPaymentFinal(subId, sub, inv, deductAmount, cashAmount);
