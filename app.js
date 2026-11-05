@@ -208,6 +208,10 @@ const availableIcons = [
 const asList = v => Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
 const normalizeInvoice = inv => { if (inv) inv.items = asList(inv.items); return inv; };
 
+// NaN/null من سجل قديم كان يوقف عرض القوائم والأزرار بصمت — كل المبالغ تمر من هنا أولاً.
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+const money = v => num(v).toLocaleString();
+
 // دالة جلب البيانات من السحابة عند تشغيل النظام
 async function initializeDB() {
     try {
@@ -617,6 +621,15 @@ window.alert = (msg) => {
     window.showAlert(msg, 'error'); 
 };
 
+// الخطأ غير المتوقع كان يوقف الزر منتصف العمل بلا رسالة؛ الآن السبب يظهر على الشاشة.
+let lastErrorToast = 0;
+window.addEventListener('error', (e) => {
+    const text = String(e.message || '').slice(0, 120);
+    if (!text || Date.now() - lastErrorToast < 5000) return;
+    lastErrorToast = Date.now();
+    window.showAlert('⚠️ النظام توقف عند هذه الخطوة: ' + text + ' — أعد المحاولة وأبلغ الإدارة', 'error');
+});
+
 // ---------------- بناء الواجهة (الخلايا) ----------------
 let sortableInstance = null; 
 
@@ -991,7 +1004,7 @@ window.renderCart = () => {
     
     // 1. حساب المنتجات والمجموع الفرعي
     currentCart.forEach((item, index) => {
-        const itemTotal = item.price * item.qty;
+        const itemTotal = num(item.price) * num(item.qty);
         subTotal += itemTotal;
         let serviceClass = 'srv-iron';
         if(item.service === 'wash_iron') serviceClass = 'srv-wash-iron';
@@ -1001,7 +1014,7 @@ window.renderCart = () => {
             <tr>
                 <td>${index + 1}</td>
                 <td>${item.name} <br><span class="service-type ${serviceClass}">${item.serviceName}</span></td>
-                <td>${item.price.toLocaleString()}</td>
+                <td>${money(item.price)}</td>
                 <td>
                     <div class="qty-controls">
                         <button class="qty-btn" onclick="window.increaseQty(${index})">+</button>
@@ -1166,8 +1179,8 @@ window.confirmOrder = () => {
     if(!name) return window.showAlert('يرجى إدخال اسم الزبون.', 'warning');
     
     // حساب المجموع الفرعي والخصم والمبلغ الكلي
-    const subTotal = currentCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const discountVal = parseFloat(document.getElementById('cart-discount').value) || 0;
+    const subTotal = currentCart.reduce((sum, item) => sum + (num(item.price) * num(item.qty)), 0);
+    const discountVal = num(document.getElementById('cart-discount').value);
     const total = Math.max(0, subTotal - discountVal);
     
     if(newDeposit > total) return window.showAlert('العربون أكبر من المبلغ الكلي!', 'error');
@@ -1179,7 +1192,7 @@ window.confirmOrder = () => {
         const index = localData.invoices.findIndex(i => i.id === editingInvoiceId);
         if (index === -1) return window.showAlert('لم أعد العثور على الطلب، حدّث الصفحة.', 'error');
         const oldInv = localData.invoices[index];
-        const oldDeposit = oldInv.customer ? oldInv.customer.paid : 0;
+        const oldDeposit = num(oldInv.customer ? oldInv.customer.paid : 0);
 
         // لقطة قبل الكتابة فوق الملاحظات واسم الزبون، لأن منها نعرف إن كانت الفاتورة على باقة VIP
         const vipSnapshot = {
@@ -1206,16 +1219,17 @@ window.confirmOrder = () => {
 
         window.logAction('تعديل طلب', `تعديل طلب رقم: ${oldInv.dailyNumber || oldInv.id}`, total, { oldInvoice: oldInv, newCart: currentCart });
         
-        // تحديث السحابة
-        update(ref(database, 'royal_data/invoices/' + editingInvoiceId), {
+        // paymentType غير المرسل إذا كان undefined يمنع رفض فايربيس للكتابة وتوقف الزر بصمت
+        const editedPatch = {
             items: localData.invoices[index].items,
             total: localData.invoices[index].total,
             subTotal: localData.invoices[index].subTotal,
             discount: localData.invoices[index].discount,
             notes: localData.invoices[index].notes,
-            paymentType: localData.invoices[index].paymentType,
             customer: localData.invoices[index].customer
-        });
+        };
+        if (localData.invoices[index].paymentType) editedPatch.paymentType = localData.invoices[index].paymentType;
+        update(ref(database, 'royal_data/invoices/' + editingInvoiceId), editedPatch);
         
         window.showAlert('تم حفظ التعديلات بنجاح!', 'success');
         
@@ -1357,7 +1371,7 @@ window.openPreviousInvoices = () => {
                 <td>${inv.date}</td>
                 <td>${inv.id}</td>
                 <td>${typeStr}</td>
-                <td>${inv.total.toLocaleString()}</td>
+                <td>${money(inv.total)}</td>
                 <td>
                     <i class="fa-solid fa-eye action-icon" onclick='window.viewInvoice("${inv.id}")' title="عرض"></i>
                     <i class="fa-solid fa-pen action-icon" style="color: #4a90e2;" onclick='window.editInvoice("${inv.id}")' title="تعديل"></i>
@@ -1420,7 +1434,10 @@ window.rebalanceVipOnEdit = (inv, newTotal, info) => {
         inv.customer.subDeducted = newDeducted;
     }
 
-    const baseNotes = (inv.notes || '').split('| 💳')[0].trim();
+    // يُقتطع من أول '💳' لا من '| 💳' فقط، وإلا كل تعديل يضيف سطر VIP فوق القديم
+    const notesText = inv.notes || '';
+    const vipMark = notesText.indexOf('💳');
+    const baseNotes = vipMark === -1 ? notesText.trim() : notesText.slice(0, vipMark).replace(/\s*\|\s*$/, '').trim();
     const remainingBalText = (sub.totalValue - sub.consumedAmount).toLocaleString();
     inv.notes = (baseNotes ? baseNotes + ' | ' : '') + `💳 دُفعت عبر فئة VIP (خُصم ${newDeducted.toLocaleString()} د.ع). المتبقي من الباقة: ${remainingBalText} د.ع.` + (newCash > 0 ? ` (المتبقي دُفع كاش: ${newCash.toLocaleString()} د.ع)` : '');
     inv.paymentType = newCash > 0 ? 'mixed' : 'subscription';
@@ -1510,9 +1527,9 @@ window.viewInvoice = (id) => {
     const tbody = document.getElementById('view-inv-items');
     tbody.innerHTML = '';
     asList(invoice.items).forEach(item => {
-        tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${(item.price * item.qty).toLocaleString()}</td></tr>`;
+        tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.serviceName}</td><td>${item.qty}</td><td>${money(item.price * item.qty)}</td></tr>`;
     });
-    document.getElementById('view-inv-total').innerText = invoice.total.toLocaleString();
+    document.getElementById('view-inv-total').innerText = money(invoice.total);
     document.getElementById('btn-print-from-view').onclick = () => window.printInvoice(invoice);
 
     document.getElementById('modal-invoices').style.display = 'none';
@@ -1575,9 +1592,9 @@ window.renderActiveOrders = () => {
                 <td style="font-weight: bold;">${highlight(custName)}</td>
                 <td>${highlight(custPhone)}</td>
                 <td>${pickupInfo}</td>
-                <td style="font-weight:bold;">${inv.total.toLocaleString()}</td>
-                <td style="color:var(--green-success);">${deposit.toLocaleString()}</td>
-                <td style="color:var(--red-danger); font-weight:900;">${remaining.toLocaleString()}</td>
+                <td style="font-weight:bold;">${money(inv.total)}</td>
+                <td style="color:var(--green-success);">${money(deposit)}</td>
+                <td style="color:var(--red-danger); font-weight:900;">${money(remaining)}</td>
                 <td>
                     <button class="btn-royal-action" style="background:var(--gold-gradient); color:#000; border:none; padding: 5px 12px;" onclick="window.confirmPickup('${inv.id}')"><i class="fa-solid fa-handshake"></i> تسليم</button>
                     <i class="fa-solid fa-eye action-icon" style="color: var(--gold); font-size: 16px; margin: 0 5px;" onclick='window.viewInvoice("${inv.id}")' title="عرض التفاصيل بسرعة"></i>
@@ -1599,7 +1616,7 @@ window.confirmPickup = (id) => {
     pendingPickupId = id;
     const remaining = inv.customer ? inv.customer.remaining : inv.total;
     
-    document.getElementById('pickup-amount-display').innerText = remaining.toLocaleString();
+    document.getElementById('pickup-amount-display').innerText = money(remaining);
     window.closeModals(); // نغلق المستودع مؤقتاً
     document.getElementById('modal-pickup-payment').style.display = 'flex';
 };
@@ -2494,7 +2511,7 @@ window.viewLogDetails = (id) => {
     // دالة مساعدة لإنشاء جدول صغير يعرض قطع الفاتورة
     const renderItemsTable = (items) => {
         if(!items || items.length === 0) return '<p style="color:var(--red-danger);">لا توجد عناصر</p>';
-        let rows = items.map(i => `<tr><td style="border:1px solid #444; padding:5px;">${i.name} (${i.serviceName})</td><td style="border:1px solid #444; padding:5px;">${i.qty}</td><td style="border:1px solid #444; padding:5px;">${(i.price * i.qty).toLocaleString()}</td></tr>`).join('');
+        let rows = items.map(i => `<tr><td style="border:1px solid #444; padding:5px;">${i.name} (${i.serviceName})</td><td style="border:1px solid #444; padding:5px;">${i.qty}</td><td style="border:1px solid #444; padding:5px;">${money(i.price * i.qty)}</td></tr>`).join('');
         return `<table style="width:100%; text-align:right; border-collapse:collapse; margin-top:10px; font-size:14px; background:#000;">
                     <thead><tr style="background:#222;"><th style="border:1px solid #444; padding:5px;">القطعة</th><th style="border:1px solid #444; padding:5px;">العدد</th><th style="border:1px solid #444; padding:5px;">المجموع</th></tr></thead>
                     <tbody>${rows}</tbody>
@@ -3114,9 +3131,9 @@ window.printInvoice = (invoice) => {
         let dailyNum = invoice.dailyNumber ? invoice.dailyNumber.toString().padStart(4, '0') : invoice.id.slice(-4);
         let formattedTime = new Date(invoice.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         
-        let totalStr = invoice.total.toLocaleString() + ' د.ع';
-        let deposit = invoice.customer ? invoice.customer.paid.toLocaleString() + ' د.ع' : '0 د.ع';
-        let remaining = invoice.customer ? invoice.customer.remaining.toLocaleString() + ' د.ع' : invoice.total.toLocaleString() + ' د.ع';
+        let totalStr = money(invoice.total) + ' د.ع';
+        let deposit = money(invoice.customer ? invoice.customer.paid : 0) + ' د.ع';
+        let remaining = money(invoice.customer ? invoice.customer.remaining : invoice.total) + ' د.ع';
         
         // الذكاء التجاري لمتغير الخصم
         let discountVal = invoice.discount || 0;
@@ -3194,9 +3211,9 @@ window.printInvoice = (invoice) => {
                 <td>${String(index + 1).padStart(2, '0')}</td>
                 <td style="text-align: right; padding-right: 15px;">${item.name}</td>
                 <td>${item.serviceName}</td>
-                <td>${item.price.toLocaleString()}</td>
+                <td>${money(item.price)}</td>
                 <td style="font-weight:bold;">${item.qty}</td>
-                <td style="font-weight: 700;">${(item.price * item.qty).toLocaleString()}</td>
+                <td style="font-weight: 700;">${money(item.price * item.qty)}</td>
             </tr>
         `).join('');
 
