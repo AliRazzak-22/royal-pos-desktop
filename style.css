@@ -79,6 +79,9 @@ input, select { outline: none; }
     display: flex; justify-content: space-between; align-items: center; padding: 0 30px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
+/* قائمة الثلاث شخطات تطفو فوق البطاقات: backdrop-filter يحجز القائمة داخل سياق الشريط،
+   فرفع الشريط نفسه فوق أقسام المحتوى هو الحل الوحيد في الوضعين */
+#pos-screen .top-bar { position: relative; z-index: 80; }
 .daily-sales-counter { font-size: 26px; font-weight: 800; color: var(--gold); display: flex; align-items: center; gap: 10px;}
 .daily-sales-counter span { transition: var(--transition); }
 .daily-sales-counter.increase { color: var(--green-success); transform: scale(1.1); }

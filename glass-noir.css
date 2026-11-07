@@ -1,0 +1,1767 @@
+/* Noir uses flat glass and one shared blur; gold remains independent. */
+
+/* =====================================================================
+   1) الرموز — زجاج مسطح وضبابية موحّدة
+   ===================================================================== */
+html[data-theme="noir"] {
+    --noir-bg-image: none;
+
+    /* الزجاج المدخّن (أسود نقي شفاف) — لوح أسود موحّد لا تدرّج */
+    --g-smoke:   rgba(8, 11, 16, .32);
+    --g-smoke-2: rgba(6, 9, 13, .56);
+    --g-smoke-3: rgba(255, 255, 255, .10);
+
+    /* الزجاج الحليبي (أبيض نقي شفاف) — لوح أبيض موحّد لا تدرّج */
+    --g-frost:   rgba(255, 255, 255, .52);
+    --g-frost-2: rgba(255, 255, 255, .56);
+    --g-frost-3: rgba(255, 255, 255, .40);
+    --g-emerald: rgba(4, 76, 48, .72);
+    --g-ruby: rgba(120, 12, 30, .70);
+    --g-ice: rgba(14, 57, 106, .66);
+    /* لا تدرّج أبيض→أسود: الأسطح موحّدة، واللمعة مجرد خط حافة علوي */
+    --g-sheen:   none;
+    --g-sheen-d: none;
+
+    /* الأحبار */
+    --g-ink:   #f3f8fc;
+    --g-ink-2: #dbe4ec;
+    --g-ink-3: #0b1014;
+    --g-ink-4: #101820;
+
+    /* الحواف واللمع — حادة لتعريف اللوح بوضوح */
+    --e-hi: rgba(255, 255, 255, .65);
+    --e-md: rgba(255, 255, 255, .38);
+    --e-lo: rgba(255, 255, 255, .18);
+
+    /* انكسار الضوء على حواف اللوح الأربع (زجاج أبيض / زجاج مدخّن) */
+    --edge-w: inset 0 1px 0 rgba(255, 255, 255, .85), inset 0 -1px 0 rgba(255, 255, 255, .25), inset 1px 0 0 rgba(255, 255, 255, .35), inset -1px 0 0 rgba(255, 255, 255, .35);
+    --edge-d: inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -1px 0 rgba(255, 255, 255, .12), inset 1px 0 0 rgba(255, 255, 255, .18), inset -1px 0 0 rgba(255, 255, 255, .18);
+
+    --lift-sm: 0 6px 18px rgba(0, 0, 0, .24);
+    --lift-md: 0 16px 38px rgba(0, 0, 0, .32);
+    --lift-lg: 0 28px 64px rgba(0, 0, 0, .40);
+
+    --r-lg: 22px;
+    --r-md: 15px;
+    --r-sm: 10px;
+
+    --g-blur: blur(4px) saturate(135%);
+
+    /* ألوان الإشارة: نسخة فاتحة للمدخّن، ونسخة داكنة كثيفة (jewel-black) للحليبي */
+    --ok-l: #d9ffee;   --ok-d: #031c12;
+    --bad-l: #ffe3e5;  --bad-d: #2b040c;
+    --cool-l: #dcecff; --cool-d: #0c2440;
+
+    /* الرموز الدلالية — قيمها الافتراضية = سياق المدخّن (سطح الصفحة) */
+    --gold: var(--g-ink);
+    --gold-gradient: var(--g-frost);
+    --black-bg: #080b0f;
+    --dark-gray: var(--g-smoke);
+    --light-gray: rgba(255, 255, 255, .16);
+    --text-white: var(--g-ink);
+    --text-gray: #ffffff;
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+
+/* =====================================================================
+   1b) سياق الحبر — كل سطح زجاجي يُعيد تعريف الرموز داخله
+   ===================================================================== */
+
+/* الأسطح الحليبية: حبر داكن وألوان دلالية داكنة */
+html[data-theme="noir"] .item-cell,
+html[data-theme="noir"] .modal-content,
+html[data-theme="noir"] .hamburger-dropdown,
+html[data-theme="noir"] .stat-card,
+html[data-theme="noir"] .cart-summary-box,
+html[data-theme="noir"] .autocomplete-item,
+html[data-theme="noir"] .cart-table tbody tr,
+html[data-theme="noir"] .invoices-table tbody tr,
+html[data-theme="noir"] .tx-card,
+html[data-theme="noir"] .package-card,
+html[data-theme="noir"] #update-modal > div,
+html[data-theme="noir"] .input-group input,
+html[data-theme="noir"] .input-group select,
+html[data-theme="noir"] .input-group textarea,
+html[data-theme="noir"] .note-input {
+    --gold: var(--g-ink-3);
+    --gold-gradient: var(--g-frost);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+    --dark-gray: var(--g-smoke-2);
+    --light-gray: rgba(11, 16, 20, .18);
+}
+
+/* الأسطح المدخّنة (ومنها زر البيع الملوّن): أحبار فاتحة */
+html[data-theme="noir"] .btn-cash,
+html[data-theme="noir"] .view-invoice-details,
+html[data-theme="noir"] .icon-picker-grid,
+html[data-theme="noir"] .icon-option,
+html[data-theme="noir"] .hamburger-item:hover,
+html[data-theme="noir"] .autocomplete-item:hover,
+html[data-theme="noir"] .qty-btn,
+html[data-theme="noir"] .discount-btn:hover,
+html[data-theme="noir"] .cart-table .service-type,
+html[data-theme="noir"] .log-type,
+html[data-theme="noir"] .srv-wash-iron,
+html[data-theme="noir"] .srv-iron,
+html[data-theme="noir"] .srv-wash-only,
+html[data-theme="noir"] .log-delete,
+html[data-theme="noir"] .log-edit,
+html[data-theme="noir"] .log-add,
+html[data-theme="noir"] .btn-electronic,
+html[data-theme="noir"] .btn-cancel,
+html[data-theme="noir"] .btn-credit,
+html[data-theme="noir"] .btn-royal-action,
+html[data-theme="noir"] .btn-iron-only {
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+
+/* =====================================================================
+   2) الخلفية: صورة المستخدم خلف حجاب دخاني خفيف، والطبقات تُضبب قليلاً
+   ===================================================================== */
+html[data-theme="noir"] body {
+    background-color: #070a0d;
+    background-image: none;
+    color: var(--g-ink);
+}
+html[data-theme="noir"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: var(--noir-bg-image) center 42% / cover no-repeat;
+    pointer-events: none;
+}
+html[data-theme="noir"] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: rgba(4, 6, 10, .20);
+    pointer-events: none;
+}
+
+/* نص يطفو على الخلفية بلا لوح: هالة دخانية تحفظ مقروئيته فوق صورة شديدة البياض */
+html[data-theme="noir"] .admin-control-panel > h2,
+html[data-theme="noir"] .admin-section > h2,
+html[data-theme="noir"] .admin-section > h3,
+html[data-theme="noir"] .admin-section > h4 {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .95), 0 0 16px rgba(0, 0, 0, .72), 0 0 34px rgba(0, 0, 0, .5);
+}
+
+/* =====================================================================
+   3) الإقلاع والقفل
+   ===================================================================== */
+html[data-theme="noir"] #loading-screen,
+html[data-theme="noir"] #tx-lock-screen {
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] #loading-screen { background-color: rgba(6, 9, 12, .60); }
+html[data-theme="noir"] #tx-lock-screen {
+    background-color: rgba(6, 9, 12, .62) !important;
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] #loading-screen h2 { color: var(--g-ink); }
+html[data-theme="noir"] .loading-icon {
+    color: var(--g-ink);
+    filter: drop-shadow(0 0 18px rgba(255, 255, 255, .35));
+}
+html[data-theme="noir"] #main-screen,
+html[data-theme="noir"] #admin-screen,
+html[data-theme="noir"] .admin-layout {
+    background-color: transparent;
+    background-image: none;
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .login-circle {
+    background: var(--g-smoke);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    box-shadow: var(--lift-lg), var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .login-circle i { color: var(--g-ink); }
+html[data-theme="noir"] .login-circle:hover {
+    background: var(--g-frost);
+    border-color: var(--e-hi);
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] .login-circle:hover i { color: var(--g-ink-3); }
+
+/* =====================================================================
+   4) الهيكل المدخّن: الأشرطة والشريط الجانبي والرؤوس — ضبابية موحّدة
+   ===================================================================== */
+html[data-theme="noir"] .top-bar {
+    background: rgba(10, 14, 18, .52);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-bottom: 1px solid var(--e-md);
+    box-shadow: var(--lift-sm), var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .top-bar-title,
+html[data-theme="noir"] .top-bar-title i { color: var(--g-ink); }
+html[data-theme="noir"] .daily-sales-counter,
+html[data-theme="noir"] .daily-sales-counter span {
+    color: var(--g-ink);
+    text-shadow: 0 0 18px rgba(255, 255, 255, .25);
+}
+html[data-theme="noir"] .daily-sales-counter.increase,
+html[data-theme="noir"] .daily-sales-counter.increase span { color: var(--ok-l); }
+html[data-theme="noir"] .daily-sales-counter.decrease,
+html[data-theme="noir"] .daily-sales-counter.decrease span { color: var(--bad-l); }
+
+html[data-theme="noir"] .cart-section {
+    background: rgba(8, 11, 16, .20);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-right: 1px solid rgba(255, 255, 255, .28);
+    box-shadow: var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .items-section-container {
+    background: rgba(10, 14, 18, .08);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .items-header {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-bottom: 1px solid var(--e-md);
+    box-shadow: var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .items-header h3 { color: var(--g-ink); letter-spacing: .3px; }
+html[data-theme="noir"] .cart-footer {
+    background: rgba(6, 9, 13, .34);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-top: 1px solid var(--e-md);
+    box-shadow: var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .cart-table-wrapper { color: var(--g-ink); }
+
+html[data-theme="noir"] .admin-sidebar {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-left: 1px solid var(--e-md);
+    box-shadow: var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .admin-sidebar-logo {
+    color: var(--g-ink);
+    border-bottom: 1px solid var(--e-lo);
+    text-shadow: 0 0 20px rgba(255, 255, 255, .22);
+}
+html[data-theme="noir"] .admin-nav-btn {
+    background: transparent;
+    color: var(--g-ink-2);
+    border-right: 3px solid transparent;
+}
+html[data-theme="noir"] .admin-nav-btn i { color: var(--g-ink-2); }
+html[data-theme="noir"] .admin-nav-btn:hover {
+    background: var(--g-smoke-3);
+    color: var(--g-ink);
+    border-right-color: var(--e-md);
+}
+html[data-theme="noir"] .admin-nav-btn.active {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink-3);
+    border-right-color: var(--g-ink-3);
+    box-shadow: var(--edge-w), var(--lift-sm);
+    font-weight: 800;
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+}
+html[data-theme="noir"] .admin-nav-btn.active i { color: var(--g-ink-3); }
+/* لوح المحتوى الإداري: زجاج مدخّن خفيف بلا لمعة حتى لا يتأثر النص الصغير */
+html[data-theme="noir"] .admin-content {
+    background: rgba(8, 11, 16, .48);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .admin-control-panel { color: var(--g-ink); }
+html[data-theme="noir"] .admin-content h2,
+html[data-theme="noir"] .admin-content h3,
+html[data-theme="noir"] .admin-content h4 { color: var(--g-ink); }
+html[data-theme="noir"] .admin-content p,
+html[data-theme="noir"] .admin-content label,
+html[data-theme="noir"] .admin-content li { color: var(--g-ink-2); }
+
+/* =====================================================================
+   5) المحتوى: النوافذ حليبية، البطاقات مدخّنة شفافة، القوائم والصفوف
+   ===================================================================== */
+html[data-theme="noir"] .modal-overlay {
+    background: rgba(4, 6, 9, .18);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+}
+html[data-theme="noir"] .modal-content {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-lg);
+    box-shadow: var(--lift-lg), var(--edge-w);
+    color: var(--g-ink-3);
+}
+/* لا نُلوّن أحفاد النافذة بقيمة مصمتة: نستعمل الرمز السياقي فيُرثى صحيحاً
+   عبر الآبار المدخّنة داخل الزجاج الحليبي (التبادل الهندسي). */
+html[data-theme="noir"] .modal-content,
+html[data-theme="noir"] .modal-content h1,
+html[data-theme="noir"] .modal-content h2,
+html[data-theme="noir"] .modal-content h3,
+html[data-theme="noir"] .modal-content h4,
+html[data-theme="noir"] .modal-content p,
+html[data-theme="noir"] .modal-content span,
+html[data-theme="noir"] .modal-content li,
+html[data-theme="noir"] .modal-content td,
+html[data-theme="noir"] .modal-content th,
+html[data-theme="noir"] .modal-content strong,
+html[data-theme="noir"] .modal-content b,
+html[data-theme="noir"] .modal-content label { color: var(--text-white); }
+html[data-theme="noir"] .modal-title { color: var(--gold); }
+
+html[data-theme="noir"] .hamburger-dropdown {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-md);
+    box-shadow: var(--lift-lg), var(--edge-w);
+}
+html[data-theme="noir"] .hamburger-item { color: var(--g-ink-3); }
+html[data-theme="noir"] .hamburger-item i { color: var(--g-ink-4); }
+html[data-theme="noir"] .hamburger-item:hover {
+    background: var(--g-smoke-2);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .hamburger-item:hover i { color: var(--g-ink); }
+
+/* بطاقات القطع: زجاج حليبي مسطح بحواف واضحة */
+html[data-theme="noir"] .item-cell {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid rgba(255, 255, 255, .55);
+    border-radius: var(--r-md);
+    box-shadow: var(--lift-sm), var(--edge-w);
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] .item-cell:hover {
+    background: var(--g-frost-2);
+    border-color: rgba(255, 255, 255, .85);
+    box-shadow: var(--lift-md), var(--edge-w), 0 0 0 1px rgba(255, 255, 255, .40), 0 0 26px rgba(255, 255, 255, .28);
+    transform: translateY(-4px);
+}
+html[data-theme="noir"] .item-icon { color: var(--g-ink-4); }
+html[data-theme="noir"] .item-cell:hover .item-icon { color: var(--g-ink-3); }
+html[data-theme="noir"] .item-name { color: var(--g-ink-3); }
+
+html[data-theme="noir"] .stat-card {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-md);
+    box-shadow: var(--lift-sm), var(--edge-w);
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] .stat-card:hover {
+    background: var(--g-frost-2);
+    border-color: rgba(255, 255, 255, .9);
+    box-shadow: var(--lift-md), var(--edge-w);
+    transform: translateY(-4px);
+}
+html[data-theme="noir"] .stat-icon { color: var(--g-ink-3); }
+html[data-theme="noir"] .stat-title { color: var(--g-ink-4); }
+html[data-theme="noir"] .stat-value { color: var(--g-ink-3); }
+html[data-theme="noir"] .stat-value.profit { color: var(--ok-d); }
+
+html[data-theme="noir"] .cart-summary-box {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-md);
+    box-shadow: var(--lift-sm), var(--edge-w);
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] .summary-line { color: var(--g-ink-3); }
+html[data-theme="noir"] .final-total-line {
+    color: var(--g-ink-3);
+    border-top: 1px dashed rgba(11, 16, 20, .35);
+}
+html[data-theme="noir"] #cart-total-wrapper {
+    background-image: none !important;
+    background-clip: border-box;
+    -webkit-background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] .animated-amount.bump { color: var(--ok-d); }
+html[data-theme="noir"] .animated-amount.drop { color: var(--bad-d); }
+
+/* آبار داكنة داخل الزجاج الحليبي — التبادل الهندسي بين الطبقتين */
+html[data-theme="noir"] .view-invoice-details,
+html[data-theme="noir"] .icon-picker-grid {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    border-radius: var(--r-sm);
+    box-shadow: var(--edge-d), var(--lift-sm);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .view-invoice-details p,
+html[data-theme="noir"] .view-invoice-details strong { color: var(--g-ink); }
+html[data-theme="noir"] .view-invoice-total {
+    color: var(--gold);
+    border-top: 1px solid var(--e-md);
+}
+html[data-theme="noir"] .icon-option { color: var(--g-ink-2); }
+html[data-theme="noir"] .icon-option:hover { color: var(--g-ink); background: var(--g-smoke-3); }
+html[data-theme="noir"] .icon-option.selected {
+    color: var(--g-ink-3);
+    background: var(--g-frost-2);
+    border-color: rgba(255, 255, 255, .9);
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+}
+
+html[data-theme="noir"] .autocomplete-item {
+    background: var(--g-frost-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-bottom: 1px solid rgba(11, 16, 20, .18);
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] .autocomplete-item span { color: var(--g-ink-4); }
+html[data-theme="noir"] .autocomplete-item:hover {
+    background: var(--g-smoke-2);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .autocomplete-item:hover span { color: var(--g-ink-2); }
+
+/* الأسطح مسطحة بلا زخارف خلفية */
+html[data-theme="noir"] .top-bar,
+html[data-theme="noir"] .items-header,
+html[data-theme="noir"] .cart-footer,
+html[data-theme="noir"] .admin-sidebar,
+html[data-theme="noir"] .cart-section {
+    background-image: var(--g-sheen-d);
+}
+html[data-theme="noir"] .modal-content,
+html[data-theme="noir"] .item-cell,
+html[data-theme="noir"] .stat-card,
+html[data-theme="noir"] .cart-summary-box,
+html[data-theme="noir"] .hamburger-dropdown,
+html[data-theme="noir"] .tx-card,
+html[data-theme="noir"] .package-card {
+    background-image: var(--g-sheen);
+}
+
+/* نوافذ السلطة والحسم — زجاج أسود مدخّن: الخزنة، بوابات الدخول، التأكيد والحذف. */
+html[data-theme="noir"] #modal-partner-tx .modal-content,
+html[data-theme="noir"] #modal-admin-login .modal-content,
+html[data-theme="noir"] #modal-custom-confirm .modal-content,
+html[data-theme="noir"] #modal-delete-service .modal-content,
+html[data-theme="noir"] #modal-delete-sub-warning .modal-content {
+    background-color: var(--g-smoke-2);
+    background-image: var(--g-sheen-d);
+    border-color: var(--e-md);
+    box-shadow: var(--lift-lg), var(--edge-d);
+    color: var(--g-ink);
+    --gold: var(--g-ink);
+    --gold-gradient: var(--g-frost);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+    --dark-gray: rgba(255, 255, 255, .12);
+    --light-gray: rgba(255, 255, 255, .20);
+}
+html[data-theme="noir"] #modal-partner-tx .btn-cancel,
+html[data-theme="noir"] #modal-admin-login .btn-cancel,
+html[data-theme="noir"] #modal-custom-confirm .btn-cancel,
+html[data-theme="noir"] #modal-delete-service .btn-cancel,
+html[data-theme="noir"] #modal-delete-sub-warning .btn-cancel {
+    background-color: var(--g-frost) !important;
+    background-image: none !important;
+    box-shadow: var(--lift-sm), var(--edge-w);
+    color: var(--g-ink-3) !important;
+    border-color: rgba(255, 255, 255, .9) !important;
+    --text-white: var(--g-ink-3);
+    --gold: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+}
+html[data-theme="noir"] #modal-partner-tx .btn-cancel i,
+html[data-theme="noir"] #modal-custom-confirm .btn-cancel i,
+html[data-theme="noir"] #modal-delete-service .btn-cancel i,
+html[data-theme="noir"] #modal-delete-sub-warning .btn-cancel i,
+html[data-theme="noir"] #modal-admin-login .btn-cancel i { color: var(--g-ink-3) !important; }
+html[data-theme="noir"] #modal-partner-tx .btn-cancel:hover,
+html[data-theme="noir"] #modal-admin-login .btn-cancel:hover,
+html[data-theme="noir"] #modal-custom-confirm .btn-cancel:hover,
+html[data-theme="noir"] #modal-delete-service .btn-cancel:hover,
+html[data-theme="noir"] #modal-delete-sub-warning .btn-cancel:hover {
+    background-color: var(--g-frost-2) !important;
+}
+html[data-theme="noir"] #modal-partner-tx #tx-lock-screen {
+    background-color: var(--g-frost) !important;
+    background-image: var(--g-sheen) !important;
+    border: 1px solid var(--e-hi);
+    color: var(--g-ink-3);
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+}
+
+/* =====================================================================
+   6) الجداول: رأس مدخّن وصفوف حليبية تطفو فوقه
+   ===================================================================== */
+html[data-theme="noir"] .cart-table thead,
+html[data-theme="noir"] .invoices-table thead { background: transparent; }
+html[data-theme="noir"] .cart-table thead tr,
+html[data-theme="noir"] .invoices-table thead tr {
+    background: transparent !important;
+}
+html[data-theme="noir"] .cart-table thead th,
+html[data-theme="noir"] .invoices-table thead th {
+    background-color: var(--g-smoke-2) !important;
+    background-image: none !important;
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] .cart-table th,
+html[data-theme="noir"] .invoices-table th {
+    color: var(--g-ink-2);
+    border-bottom: 1px solid var(--e-lo);
+    letter-spacing: .4px;
+}
+html[data-theme="noir"] .cart-table tbody tr,
+html[data-theme="noir"] .invoices-table tbody tr {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    box-shadow: var(--lift-sm), var(--edge-w);
+}
+html[data-theme="noir"] .cart-table tbody tr:hover,
+html[data-theme="noir"] .invoices-table tbody tr:hover {
+    background: var(--g-frost-2);
+    border-color: rgba(255, 255, 255, .9);
+    box-shadow: var(--lift-md), var(--edge-w);
+}
+html[data-theme="noir"] .cart-table td,
+html[data-theme="noir"] .invoices-table td { color: var(--g-ink-3); }
+html[data-theme="noir"] .invoices-table { border-collapse: collapse; }
+html[data-theme="noir"] .invoices-list-modal { color: var(--g-ink-3); }
+html[data-theme="noir"] .action-icon { color: var(--g-ink-4); }
+html[data-theme="noir"] .action-icon:hover { color: var(--g-ink-3); }
+
+/* شارات داكنة تطفو فوق الصفوف الحليبية */
+html[data-theme="noir"] .cart-table .service-type,
+html[data-theme="noir"] .log-type,
+html[data-theme="noir"] .srv-wash-iron,
+html[data-theme="noir"] .srv-iron,
+html[data-theme="noir"] .srv-wash-only,
+html[data-theme="noir"] .log-delete,
+html[data-theme="noir"] .log-edit,
+html[data-theme="noir"] .log-add {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink);
+    border: 1px solid var(--e-md);
+    box-shadow: var(--edge-d);
+}
+html[data-theme="noir"] .srv-wash-iron { background: var(--g-smoke-2); color: var(--g-ink); }
+html[data-theme="noir"] .srv-iron { background: var(--g-smoke-2); color: var(--g-ink-2); }
+html[data-theme="noir"] .srv-wash-only,
+html[data-theme="noir"] .cart-table .srv-wash-only {
+    background: var(--g-emerald);
+    color: var(--ok-l);
+    border: 1px solid rgba(168, 247, 212, .5);
+}
+html[data-theme="noir"] .log-delete { color: var(--bad-l); background: var(--g-ruby); border: 1px solid rgba(255, 227, 229, .5); }
+html[data-theme="noir"] .log-edit { color: var(--cool-l); background: var(--g-ice); border: 1px solid rgba(220, 236, 255, .5); }
+html[data-theme="noir"] .log-add { color: var(--ok-l); background: var(--g-emerald); border: 1px solid rgba(168, 247, 212, .5); }
+
+html[data-theme="noir"] .qty-btn {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink);
+    border: 1px solid var(--e-md);
+    box-shadow: var(--edge-d);
+}
+html[data-theme="noir"] .qty-btn:hover {
+    background: var(--g-frost-2);
+    color: var(--g-ink-3);
+    border-color: rgba(255, 255, 255, .9);
+}
+html[data-theme="noir"] .delete-btn { color: var(--bad-d); background: transparent; }
+html[data-theme="noir"] .delete-btn:hover { color: #35060f; }
+
+/* =====================================================================
+   7) الأزرار: زجاج بلّوري — أبيض للفعّال، مدخّن للثانوي، ملوّن للبيع
+   ===================================================================== */
+html[data-theme="noir"] .btn {
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-sm);
+    box-shadow: var(--lift-sm), var(--edge-w);
+}
+/* تأكيد / حفظ: زجاج أبيض بلّوري بحبر داكن */
+html[data-theme="noir"] .btn-confirm,
+html[data-theme="noir"] .btn-save {
+    background-color: var(--g-frost) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink-3) !important;
+    border: 1px solid rgba(255, 255, 255, .85);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .42), var(--edge-w);
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+}
+html[data-theme="noir"] .btn-confirm i,
+html[data-theme="noir"] .btn-save i,
+html[data-theme="noir"] .btn-confirm:hover i,
+html[data-theme="noir"] .btn-save:hover i { color: inherit !important; }
+html[data-theme="noir"] .btn-confirm:hover,
+html[data-theme="noir"] .btn-save:hover {
+    background-color: var(--g-frost-2) !important;
+    background-image: none !important;
+    color: var(--g-ink-3) !important;
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+    transform: translateY(-2px);
+}
+/* بيع / نقدي: زجاج زمرّدي ملوّن بحواف انكسار وتوهّج — لا تعبئة مخفّفة */
+html[data-theme="noir"] .btn-cash {
+    background-color: var(--g-emerald) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: #eafff5 !important;
+    border: 1px solid rgba(168, 247, 212, .55);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .35), 0 0 18px rgba(92, 232, 168, .18);
+    --gold: var(--g-ink);
+    --text-white: #eafff5;
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] .btn-cash i { color: #eafff5 !important; }
+html[data-theme="noir"] .btn-cash:hover {
+    background-color: rgba(4, 76, 48, .78) !important;
+    background-image: none !important;
+    border-color: rgba(168, 247, 212, .8);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .46), inset 0 1px 0 rgba(255, 255, 255, .45), 0 0 28px rgba(92, 232, 168, .35);
+    transform: translateY(-2px);
+}
+html[data-theme="noir"] .btn-electronic,
+html[data-theme="noir"] .btn-cancel,
+html[data-theme="noir"] .btn-credit,
+html[data-theme="noir"] .btn-royal-action {
+    background-color: var(--g-smoke-2) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink) !important;
+    border: 1px solid var(--e-md);
+    box-shadow: var(--lift-sm), var(--edge-d);
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] .btn-electronic i,
+html[data-theme="noir"] .btn-cancel i,
+html[data-theme="noir"] .btn-credit i,
+html[data-theme="noir"] .btn-royal-action i { color: var(--g-ink) !important; }
+html[data-theme="noir"] .btn-electronic:hover,
+html[data-theme="noir"] .btn-cancel:hover,
+html[data-theme="noir"] .btn-credit:hover {
+    background-color: rgba(6, 9, 13, .64) !important;
+    border-color: var(--e-hi);
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+html[data-theme="noir"] .top-bar-btn {
+    background: rgba(8, 11, 16, .20);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--gold);
+    border: 1px solid var(--e-md);
+    border-radius: var(--r-sm);
+    box-shadow: var(--edge-d);
+}
+html[data-theme="noir"] .top-bar-btn i { color: inherit; }
+html[data-theme="noir"] .top-bar-btn:hover {
+    background: var(--g-frost-2) !important;
+    color: var(--g-ink-3) !important;
+    border-color: rgba(255, 255, 255, .95);
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+}
+html[data-theme="noir"] .top-bar-btn:hover i { color: var(--g-ink-3) !important; }
+html[data-theme="noir"] .btn-royal-action {
+    background: var(--g-smoke-2);
+    color: var(--g-ink);
+    border: 1px solid var(--e-md);
+    box-shadow: var(--edge-d);
+}
+html[data-theme="noir"] .btn-royal-action:hover {
+    background-color: var(--g-frost-2) !important;
+    background-image: none !important;
+    color: var(--g-ink-3) !important;
+    border-color: rgba(255, 255, 255, .95);
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+}
+html[data-theme="noir"] .btn-royal-action:hover i { color: var(--g-ink-3) !important; }
+/* زر البيع الرئيسي: زجاج زمرّدي موحّد اللون، شفاف يتوهّج — لا تدرّج */
+html[data-theme="noir"] #btn-main-checkout {
+    background-color: rgba(4, 120, 76, .46) !important;
+    background-image: none !important;
+    background-size: 100% 100% !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: #eafff5 !important;
+    border: 1px solid rgba(168, 247, 212, .60) !important;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, .45), var(--edge-d), 0 0 26px rgba(92, 232, 168, .30) !important;
+    animation: none !important;
+    --gold: var(--g-ink);
+    --text-white: #eafff5;
+}
+html[data-theme="noir"] #btn-main-checkout i { color: #eafff5 !important; }
+html[data-theme="noir"] #btn-main-checkout:hover {
+    background-color: rgba(4, 120, 76, .58) !important;
+    background-image: none !important;
+    background-size: 100% 100% !important;
+    color: #ffffff !important;
+    border-color: rgba(168, 247, 212, .85) !important;
+    box-shadow: 0 20px 44px rgba(0, 0, 0, .50), var(--edge-d), 0 0 40px rgba(92, 232, 168, .45) !important;
+    animation: none !important;
+}
+html[data-theme="noir"] #btn-main-checkout:hover i { color: #ffffff !important; }
+/* زر حفظ التعديل: زجاج أزرق جليدي بحواف وتوهّج */
+html[data-theme="noir"] #btn-save-edit {
+    background-color: var(--g-ice) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: #eaf4ff !important;
+    border: 1px solid rgba(220, 236, 255, .55) !important;
+    box-shadow: var(--lift-sm), var(--edge-d), 0 0 22px rgba(156, 201, 255, .20) !important;
+    --gold: var(--g-ink);
+    --text-white: #eaf4ff;
+    --text-gray: var(--g-ink-2);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] #btn-save-edit i { color: #eaf4ff !important; }
+
+html[data-theme="noir"] .service-select-btns .srv-btn {
+    border-radius: var(--r-md);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+}
+html[data-theme="noir"] .btn-wash-iron {
+    background: var(--g-frost);
+    color: var(--g-ink-3);
+    border: 1px solid rgba(255, 255, 255, .9);
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+}
+html[data-theme="noir"] .btn-wash-iron:hover { background: var(--g-frost-2); }
+html[data-theme="noir"] .btn-iron-only {
+    background: var(--g-smoke-2);
+    color: var(--g-ink);
+    border: 1px solid var(--e-md);
+}
+html[data-theme="noir"] .btn-iron-only:hover { background: rgba(6, 9, 13, .64); border-color: var(--e-hi); color: #ffffff; }
+html[data-theme="noir"] .btn-wash-only {
+    background: var(--g-emerald);
+    color: var(--ok-l);
+    border: 1px solid rgba(168, 247, 212, .5);
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --green-success: var(--ok-l);
+}
+html[data-theme="noir"] .btn-wash-only:hover { background: var(--g-emerald); color: #e6fff4; }
+html[data-theme="noir"] .srv-title,
+html[data-theme="noir"] .service-select-btns i,
+html[data-theme="noir"] .srv-btn .price { color: inherit; }
+
+/* =====================================================================
+   8) الحقول: زجاج حليبي بحبر داكن — ضبابية موحّدة
+   ===================================================================== */
+html[data-theme="noir"] .input-group label,
+html[data-theme="noir"] .toggle-label { color: var(--text-gray); }
+html[data-theme="noir"] .input-group input,
+html[data-theme="noir"] .input-group select,
+html[data-theme="noir"] .input-group textarea,
+html[data-theme="noir"] .note-input {
+    background-color: var(--g-frost-2);
+    background-image: none;
+    background-size: auto;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink-3);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-sm);
+    box-shadow: var(--edge-w);
+    caret-color: var(--g-ink-3);
+}
+html[data-theme="noir"] .input-group input:focus,
+html[data-theme="noir"] .input-group select:focus,
+html[data-theme="noir"] .input-group textarea:focus,
+html[data-theme="noir"] .note-input:focus {
+    background-color: var(--g-frost-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .28), var(--edge-w);
+    color: #05080b;
+}
+html[data-theme="noir"] .input-group select option { background: #f2f6fa; color: #0b1014; }
+html[data-theme="noir"] input::placeholder,
+html[data-theme="noir"] textarea::placeholder { color: rgba(11, 16, 20, .70); opacity: 1; }
+
+/* بئر الحسم: زجاج ياقوتي عميق بحبر فاتح */
+html[data-theme="noir"] .discount-wrapper {
+    background-color: var(--g-ruby);
+    background-image: var(--g-sheen-d);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid rgba(255, 227, 229, .5);
+    border-radius: var(--r-sm);
+    box-shadow: var(--edge-d), var(--lift-sm);
+}
+html[data-theme="noir"] .discount-wrapper:hover,
+html[data-theme="noir"] .discount-wrapper:focus-within {
+    border-color: rgba(255, 227, 229, .8);
+    box-shadow: 0 0 0 3px rgba(255, 201, 206, .16);
+}
+html[data-theme="noir"] .discount-btn { background: rgba(255, 255, 255, .10); color: #ffd7db; }
+html[data-theme="noir"] .discount-btn:hover { background: var(--g-smoke-2); color: var(--g-ink); }
+html[data-theme="noir"] .discount-input-elegant { background: transparent; color: #ffd7db; }
+
+html[data-theme="noir"] .ios-toggle .toggle-slider {
+    background-color: rgba(11, 16, 20, .30);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid rgba(11, 16, 20, .38);
+    box-shadow: var(--edge-d);
+}
+html[data-theme="noir"] .ios-toggle .toggle-slider::after { background-color: #ffffff; }
+html[data-theme="noir"] .ios-toggle input:checked + .toggle-slider {
+    background-color: var(--g-frost-2);
+    border-color: #ffffff;
+}
+html[data-theme="noir"] .ios-toggle input:checked + .toggle-slider::after { background-color: #0b1014; }
+html[data-theme="noir"] .ios-toggle input:checked ~ .toggle-label { color: var(--text-white); font-weight: 800; }
+
+/* =====================================================================
+   9) بطاقات الدفع وباقات الاشتراك: زجاج مُلوّن شفاف بحبر داكن
+   ===================================================================== */
+html[data-theme="noir"] .tx-card {
+    background: var(--g-frost);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi);
+    border-radius: var(--r-md);
+    box-shadow: var(--lift-sm), var(--edge-w);
+    color: var(--g-ink-4);
+}
+html[data-theme="noir"] .tx-card i,
+html[data-theme="noir"] .tx-card span { color: inherit; }
+html[data-theme="noir"] .tx-deposit-card:hover { border-color: rgba(10, 122, 80, .55); }
+html[data-theme="noir"] .tx-deposit-card.selected {
+    background: rgba(194, 244, 218, .60);
+    border-color: rgba(10, 122, 80, .8);
+    color: var(--ok-d);
+}
+html[data-theme="noir"] .tx-withdraw-card:hover { border-color: rgba(173, 30, 53, .55); }
+html[data-theme="noir"] .tx-withdraw-card.selected {
+    background: rgba(252, 210, 221, .60);
+    border-color: rgba(173, 30, 53, .8);
+    color: var(--bad-d);
+}
+
+/* الباقات: زجاج ملوّن مسطح بحبر داكن */
+html[data-theme="noir"] .package-card {
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border-radius: var(--r-md);
+    color: var(--g-ink-3);
+    box-shadow: var(--lift-sm), var(--edge-w);
+}
+html[data-theme="noir"] .package-card::before { content: none; background-image: none; }
+html[data-theme="noir"] .package-card .package-title,
+html[data-theme="noir"] .package-card .package-details { color: var(--g-ink-3); text-shadow: none; }
+html[data-theme="noir"] .package-card .package-details { background: var(--g-frost-3); }
+html[data-theme="noir"] .pkg-bronze {
+    background: rgba(244, 205, 163, .62);
+    border: 1px solid rgba(255, 225, 191, .72);
+}
+html[data-theme="noir"] .pkg-silver {
+    background: rgba(231, 240, 248, .56);
+    border: 1px solid rgba(241, 248, 255, .72);
+}
+html[data-theme="noir"] .pkg-gold {
+    background: rgba(255, 230, 153, .60);
+    border: 1px solid rgba(255, 242, 191, .72);
+}
+html[data-theme="noir"] .pkg-gold .package-title,
+html[data-theme="noir"] .pkg-gold .package-details { color: #2a2005; }
+html[data-theme="noir"] .pkg-diamond {
+    background: rgba(183, 229, 255, .62);
+    border: 1px solid rgba(220, 244, 255, .72);
+}
+
+html[data-theme="noir"] .customer-stat-header { color: var(--g-ink-2); }
+html[data-theme="noir"] .customer-stat-bar-bg {
+    background: rgba(255, 255, 255, .14);
+    border: 1px solid var(--e-lo);
+}
+html[data-theme="noir"] .fill-green { background: rgba(92, 232, 168, .72); }
+html[data-theme="noir"] .fill-blue { background: rgba(156, 201, 255, .72); }
+html[data-theme="noir"] .fill-green,
+html[data-theme="noir"] .fill-blue,
+html[data-theme="noir"] .toast-progress,
+html[data-theme="noir"] #update-progress-bar {
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-w);
+}
+
+/* =====================================================================
+   10) العائمات: تنبيهات وتلميحات — مدخّنة لتطفو فوق كل شيء
+   ===================================================================== */
+html[data-theme="noir"] .toast-msg {
+    background: rgba(8, 11, 15, .62);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    border-right: 3px solid var(--g-ink);
+    border-radius: var(--r-sm);
+    box-shadow: var(--lift-md), var(--edge-d);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] .toast-msg.toast-success { border-right-color: var(--ok-l); }
+html[data-theme="noir"] .toast-msg.toast-error { border-right-color: var(--bad-l); }
+html[data-theme="noir"] .toast-msg.toast-warning { border-right-color: var(--g-ink-2); }
+html[data-theme="noir"] .toast-success i { color: var(--ok-l); }
+html[data-theme="noir"] .toast-error i { color: var(--bad-l); }
+html[data-theme="noir"] .toast-warning i { color: var(--g-ink); }
+html[data-theme="noir"] .toast-progress { background: rgba(255, 255, 255, .55); }
+html[data-theme="noir"] .toast-success .toast-progress { background: var(--ok-l); }
+html[data-theme="noir"] .toast-error .toast-progress { background: var(--bad-l); }
+
+html[data-theme="noir"] [data-tooltip]::after {
+    background: rgba(8, 11, 15, .62);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink);
+    border: 1px solid var(--e-md);
+    box-shadow: var(--lift-sm);
+}
+
+html[data-theme="noir"] .sortable-ghost {
+    background: rgba(255, 255, 255, .18);
+    border: 2px dashed rgba(255, 255, 255, .6);
+}
+html[data-theme="noir"] .sortable-drag {
+    background: var(--g-frost-2) !important;
+    color: var(--g-ink-3) !important;
+    box-shadow: 0 26px 50px rgba(0, 0, 0, .55) !important;
+}
+
+html[data-theme="noir"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-theme="noir"] ::-webkit-scrollbar-track { background: rgba(255, 255, 255, .05); }
+html[data-theme="noir"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .32);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .18);
+}
+html[data-theme="noir"] ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .55); }
+html[data-theme="noir"] ::selection { background: rgba(255, 255, 255, .30); color: #05080b; }
+html[data-theme="noir"] :focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: 2px; }
+
+/* =====================================================================
+   11) الاستوديو ونافذة التحديث: الورق يبقى ورقاً أبيض
+   ===================================================================== */
+html[data-theme="noir"] #admin-invoice-designer .workspace-container {
+    background: var(--g-smoke);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    border-radius: var(--r-md);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] #fabric-props-panel {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    border-radius: var(--r-md);
+    color: var(--g-ink);
+}
+html[data-theme="noir"] #fabric-props-panel label,
+html[data-theme="noir"] #fabric-props-panel span,
+html[data-theme="noir"] #fabric-props-panel h4 { color: var(--g-ink-2); }
+html[data-theme="noir"] #fabric-props-panel input,
+html[data-theme="noir"] #fabric-props-panel select {
+    background: var(--g-frost-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: #0b1014;
+    border: 1px solid rgba(255, 255, 255, .9);
+    box-shadow: var(--edge-w);
+}
+html[data-theme="noir"] #fab-fill,
+html[data-theme="noir"] #fab-stroke {
+    background: var(--g-frost-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: #0b1014;
+    border: 1px solid rgba(255, 255, 255, .9);
+    box-shadow: var(--edge-w);
+}
+
+html[data-theme="noir"] #update-modal > div {
+    background: var(--g-frost-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid rgba(255, 255, 255, .9);
+    border-radius: var(--r-lg);
+    box-shadow: var(--lift-lg), var(--edge-w);
+    color: var(--g-ink-3);
+}
+html[data-theme="noir"] #update-modal h2 { color: var(--g-ink-3); }
+html[data-theme="noir"] #update-modal i { color: var(--g-ink-3); }
+html[data-theme="noir"] #update-version-text,
+html[data-theme="noir"] #update-release-notes { color: var(--g-ink-4); }
+html[data-theme="noir"] #update-progress-container {
+    background: rgba(11, 16, 20, .16);
+    border: 1px solid rgba(11, 16, 20, .2);
+}
+html[data-theme="noir"] #update-progress-bar { background: rgba(11, 16, 20, .68); }
+html[data-theme="noir"] #btn-download-update {
+    background: var(--g-frost-2);
+    color: var(--g-ink-3);
+    border: 1px solid #ffffff;
+}
+html[data-theme="noir"] #btn-ignore-update {
+    background: var(--g-smoke-2);
+    color: var(--g-ink);
+    border: 1px solid var(--e-md);
+}
+html[data-theme="noir"] #custom-confirm-title { color: var(--text-white); }
+html[data-theme="noir"] #custom-confirm-msg { color: var(--text-gray); }
+html[data-theme="noir"] #pickup-amount-display,
+html[data-theme="noir"] .pickup-amount,
+html[data-theme="noir"] #checkout-pickup-date + * { color: var(--g-ink-3); }
+
+/* =====================================================================
+   12) الأنماط المضمّنة في index.html / app.js — صيغة hex وصيغة rgb()
+       (المتصفح يعيد كتابة السطر بصيغة rgb() بمجرد لمس JS له، فلا بد من الصيغتين)
+   ===================================================================== */
+
+/* نصوص ذهبية/برتقالية مضمّنة → الرمز السياقي */
+html[data-theme="noir"] [style*="color:#d4af37"],
+html[data-theme="noir"] [style*="color: #d4af37"],
+html[data-theme="noir"] [style*="color:#D4AF37"],
+html[data-theme="noir"] [style*="color: #D4AF37"],
+html[data-theme="noir"] [style*="color:rgb(212,175,55)"],
+html[data-theme="noir"] [style*="color: rgb(212, 175, 55)"],
+html[data-theme="noir"] [style*="color:#f39c12"],
+html[data-theme="noir"] [style*="color: #f39c12"],
+html[data-theme="noir"] [style*="color:rgb(243,156,18)"],
+html[data-theme="noir"] [style*="color: rgb(243, 156, 18)"],
+html[data-theme="noir"] [style*="color:#e67e22"],
+html[data-theme="noir"] [style*="color: #e67e22"],
+html[data-theme="noir"] [style*="color:rgb(230,126,34)"],
+html[data-theme="noir"] [style*="color: rgb(230, 126, 34)"],
+html[data-theme="noir"] [style*="color: var(--gold)"],
+html[data-theme="noir"] [style*="color:var(--gold)"] {
+    color: var(--gold) !important;
+}
+
+/* نصوص زرقاء مضمّنة */
+html[data-theme="noir"] [style*="color:#4a90e2"],
+html[data-theme="noir"] [style*="color: #4a90e2"],
+html[data-theme="noir"] [style*="color:rgb(74,144,226)"],
+html[data-theme="noir"] [style*="color: rgb(74, 144, 226)"] {
+    color: var(--info) !important;
+}
+
+/* نصوص خطر/نجاح مضمّنة */
+html[data-theme="noir"] [style*="color:#ff4757"],
+html[data-theme="noir"] [style*="color: #ff4757"],
+html[data-theme="noir"] [style*="color:rgb(255,71,87)"],
+html[data-theme="noir"] [style*="color: rgb(255, 71, 87)"],
+html[data-theme="noir"] [style*="color: var(--red-danger)"],
+html[data-theme="noir"] [style*="color:var(--red-danger)"] {
+    color: var(--red-danger) !important;
+}
+html[data-theme="noir"] [style*="color:#2ed573"],
+html[data-theme="noir"] [style*="color: #2ed573"],
+html[data-theme="noir"] [style*="color:rgb(46,213,115)"],
+html[data-theme="noir"] [style*="color: rgb(46, 213, 115)"],
+html[data-theme="noir"] [style*="color: var(--green-success)"],
+html[data-theme="noir"] [style*="color:var(--green-success)"] {
+    color: var(--green-success) !important;
+}
+
+/* نصوص بيضاء أو رمادية مضمّنة → تحسب السياق */
+html[data-theme="noir"] [style*="color:#fff"],
+html[data-theme="noir"] [style*="color: #fff"],
+html[data-theme="noir"] [style*="color:#ffffff"],
+html[data-theme="noir"] [style*="color: #ffffff"],
+html[data-theme="noir"] [style*="color:rgb(255,255,255)"],
+html[data-theme="noir"] [style*="color: rgb(255, 255, 255)"],
+html[data-theme="noir"] [style*="color:white"],
+html[data-theme="noir"] [style*="color: white"],
+html[data-theme="noir"] [style*="color: var(--text-white)"],
+html[data-theme="noir"] [style*="color:var(--text-white)"] {
+    color: var(--text-white) !important;
+}
+html[data-theme="noir"] [style*="color:#555"],
+html[data-theme="noir"] [style*="color: #555"],
+html[data-theme="noir"] [style*="color:rgb(85,85,85)"],
+html[data-theme="noir"] [style*="color: rgb(85, 85, 85)"],
+html[data-theme="noir"] [style*="color:#666"],
+html[data-theme="noir"] [style*="color: #666"],
+html[data-theme="noir"] [style*="color:rgb(102,102,102)"],
+html[data-theme="noir"] [style*="color: rgb(102, 102, 102)"],
+html[data-theme="noir"] [style*="color:#888"],
+html[data-theme="noir"] [style*="color: #888"],
+html[data-theme="noir"] [style*="color:rgb(136,136,136)"],
+html[data-theme="noir"] [style*="color: rgb(136, 136, 136)"],
+html[data-theme="noir"] [style*="color:#aaa"],
+html[data-theme="noir"] [style*="color: #aaa"],
+html[data-theme="noir"] [style*="color: var(--text-gray)"],
+html[data-theme="noir"] [style*="color:var(--text-gray)"] {
+    color: var(--text-gray) !important;
+}
+
+/* نصوص داكنة مضمّنة فوق الأسطح الفاتحة تبقى داكنة */
+html[data-theme="noir"] [style*="color:#111"],
+html[data-theme="noir"] [style*="color: #111"],
+html[data-theme="noir"] [style*="color:rgb(17, 17, 17)"],
+html[data-theme="noir"] [style*="color: rgb(17, 17, 17)"] {
+    color: var(--text-white) !important;
+}
+
+/* خلفيات داكنة مضمّنة → زجاج مدخّن */
+html[data-theme="noir"] [style*="background:#111"],
+html[data-theme="noir"] [style*="background: #111"],
+html[data-theme="noir"] [style*="background-color: #111"],
+html[data-theme="noir"] [style*="background-color:#111"],
+html[data-theme="noir"] [style*="background:#0a0a0a"],
+html[data-theme="noir"] [style*="background: #0a0a0a"],
+html[data-theme="noir"] [style*="background:#050505"],
+html[data-theme="noir"] [style*="background: #050505"],
+html[data-theme="noir"] [style*="background-color: rgb(5, 5, 5)"],
+html[data-theme="noir"] [style*="background:#222"],
+html[data-theme="noir"] [style*="background: #222"],
+html[data-theme="noir"] [style*="background: rgb(34, 34, 34)"],
+html[data-theme="noir"] [style*="background-color: rgb(34, 34, 34)"],
+html[data-theme="noir"] [style*="background:#000"],
+html[data-theme="noir"] [style*="background: #000"],
+html[data-theme="noir"] [style*="background: rgb(0, 0, 0)"],
+html[data-theme="noir"] [style*="background-color: rgb(0, 0, 0)"],
+html[data-theme="noir"] [style*="background: rgb(10, 10, 10)"],
+html[data-theme="noir"] [style*="background-color: rgb(10, 10, 10)"],
+html[data-theme="noir"] [style*="background: rgb(17, 17, 17)"],
+html[data-theme="noir"] [style*="background-color: rgb(17, 17, 17)"],
+html[data-theme="noir"] [style*="background: var(--dark-gray)"],
+html[data-theme="noir"] [style*="background:var(--dark-gray)"] {
+    background: var(--g-smoke-2) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    border-color: var(--e-md) !important;
+    color: var(--g-ink) !important;
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+
+/* خلفيات فاتحة مضمّنة → زجاج حليبي */
+html[data-theme="noir"] [style*="background:#eee"],
+html[data-theme="noir"] [style*="background: #eee"],
+html[data-theme="noir"] [style*="background: rgb(238, 238, 238)"],
+html[data-theme="noir"] [style*="background-color: rgb(238, 238, 238)"],
+html[data-theme="noir"] [style*="background:#ffffff"],
+html[data-theme="noir"] [style*="background: #ffffff"],
+html[data-theme="noir"] [style*="background:#fff"],
+html[data-theme="noir"] [style*="background: #fff"],
+html[data-theme="noir"] [style*="background: rgb(255, 255, 255)"],
+html[data-theme="noir"] [style*="background-color: rgb(255, 255, 255)"] {
+    background: var(--g-frost-2) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-w) !important;
+    border-color: var(--e-hi) !important;
+    color: var(--g-ink-3) !important;
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+}
+
+/* خلفيات ذهبية/برتقالية مضمّنة → زجاج أبيض بحبر داكن */
+html[data-theme="noir"] [style*="background:#D4AF37"],
+html[data-theme="noir"] [style*="background: #D4AF37"],
+html[data-theme="noir"] [style*="background: rgb(212, 175, 55)"],
+html[data-theme="noir"] [style*="background-color: rgb(212, 175, 55)"],
+html[data-theme="noir"] [style*="background:rgb(212,175,55)"],
+html[data-theme="noir"] [style*="background:#f39c12"],
+html[data-theme="noir"] [style*="background: #f39c12"],
+html[data-theme="noir"] [style*="background: rgb(243, 156, 18)"],
+html[data-theme="noir"] [style*="background-color: rgb(243, 156, 18)"] {
+    background-color: var(--g-frost) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-w) !important;
+    color: var(--g-ink-3) !important;
+    border-color: rgba(255, 255, 255, .85) !important;
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+}
+
+/* خلفيات زرقاء مضمّنة → زجاج جليدي بحبر فاتح */
+html[data-theme="noir"] [style*="background:#4a90e2"],
+html[data-theme="noir"] [style*="background: #4a90e2"],
+html[data-theme="noir"] [style*="background: rgb(74, 144, 226)"],
+html[data-theme="noir"] [style*="background:rgb(74,144,226)"],
+html[data-theme="noir"] [style*="background-color: rgb(74, 144, 226)"] {
+    background: var(--g-ice) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    color: var(--g-ink) !important;
+    border-color: var(--e-md) !important;
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+
+/* خلفيات خطر/نجاح مضمّنة → زجاج مُلوّن داكن يكفي لحبر أبيض */
+html[data-theme="noir"] [style*="background:#ff4757"],
+html[data-theme="noir"] [style*="background: #ff4757"],
+html[data-theme="noir"] [style*="background: rgb(255, 71, 87)"],
+html[data-theme="noir"] [style*="background-color: rgb(255, 71, 87)"],
+html[data-theme="noir"] [style*="background: var(--red-danger)"],
+html[data-theme="noir"] [style*="background:var(--red-danger)"] {
+    background: var(--g-ruby) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 227, 229, .55) !important;
+    --text-white: #ffffff;
+    --gold: #ffffff;
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] [style*="background:#2ed573"],
+html[data-theme="noir"] [style*="background: #2ed573"],
+html[data-theme="noir"] [style*="background: rgb(46, 213, 115)"],
+html[data-theme="noir"] [style*="background-color: rgb(46, 213, 115)"],
+html[data-theme="noir"] [style*="background: var(--green-success)"],
+html[data-theme="noir"] [style*="background:var(--green-success)"] {
+    background: var(--g-emerald) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    color: #ffffff !important;
+    border-color: rgba(168, 247, 212, .55) !important;
+    --text-white: #ffffff;
+    --gold: #ffffff;
+    --text-gray: var(--g-ink-2);
+    --red-danger: var(--bad-l);
+    --green-success: var(--ok-l);
+    --info: var(--cool-l);
+}
+
+/* خلفيات ملوّنة مضمّنة → زجاج مسطح بحبر فاتح */
+html[data-theme="noir"] [style*="background:rgba(46, 213, 115"],
+html[data-theme="noir"] [style*="background: rgba(46, 213, 115"],
+html[data-theme="noir"] [style*="background-color:rgba(46, 213, 115"],
+html[data-theme="noir"] [style*="background-color: rgba(46, 213, 115"],
+html[data-theme="noir"] [style*="background:rgba(46,213,115"],
+html[data-theme="noir"] [style*="background: rgba(46,213,115"] {
+    background-image: none !important;
+    background-color: var(--g-emerald) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    border-color: rgba(168, 247, 212, .5) !important;
+    color: var(--ok-l) !important;
+    --text-white: var(--g-ink);
+    --gold: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --green-success: var(--ok-l);
+    --red-danger: var(--bad-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] [style*="background:rgba(255, 71, 87"],
+html[data-theme="noir"] [style*="background: rgba(255, 71, 87"],
+html[data-theme="noir"] [style*="background-color:rgba(255, 71, 87"],
+html[data-theme="noir"] [style*="background-color: rgba(255, 71, 87"],
+html[data-theme="noir"] [style*="background:rgba(255,71,87"],
+html[data-theme="noir"] [style*="background: rgba(255,71,87"] {
+    background-image: none !important;
+    background-color: var(--g-ruby) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    border-color: rgba(255, 227, 229, .5) !important;
+    color: var(--bad-l) !important;
+    --text-white: var(--g-ink);
+    --gold: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --green-success: var(--ok-l);
+    --red-danger: var(--bad-l);
+    --info: var(--cool-l);
+}
+
+/* تعبئات ذهبية مضمّنة بالرمز → لوح زجاجي أبيض بحبر داكن */
+html[data-theme="noir"] [style*="background:var(--gold)"],
+html[data-theme="noir"] [style*="background: var(--gold)"],
+html[data-theme="noir"] [style*="background:var(--gold-gradient)"],
+html[data-theme="noir"] [style*="background: var(--gold-gradient)"],
+html[data-theme="noir"] [style*="background-color: var(--gold)"],
+html[data-theme="noir"] [style*="background-color:var(--gold)"],
+html[data-theme="noir"] [style*="background:rgb(212,175,55)"],
+html[data-theme="noir"] [style*="background: rgb(212, 175, 55)"] {
+    background-color: var(--g-frost) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    color: var(--g-ink-3) !important;
+    border-color: rgba(255, 255, 255, .85) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .35), var(--edge-w) !important;
+    --gold: var(--g-ink-3);
+    --text-white: var(--g-ink-3);
+    --text-gray: var(--g-ink-4);
+    --red-danger: var(--bad-d);
+    --green-success: var(--ok-d);
+    --info: var(--cool-d);
+}
+html[data-theme="noir"] [style*="background:var(--gold)"] i,
+html[data-theme="noir"] [style*="background: var(--gold)"] i,
+html[data-theme="noir"] [style*="background:var(--gold-gradient)"] i,
+html[data-theme="noir"] [style*="background: var(--gold-gradient)"] i { color: var(--g-ink-3) !important; }
+
+/* حبر أسود مضمّن = «حبر فوق تعبئة فاتحة» فيبقى داكناً */
+html[data-theme="noir"] [style*="color:#000"],
+html[data-theme="noir"] [style*="color: #000"],
+html[data-theme="noir"] [style*="color:rgb(0,0,0)"],
+html[data-theme="noir"] [style*="color: rgb(0, 0, 0)"],
+html[data-theme="noir"] [style*="color:black"],
+html[data-theme="noir"] [style*="color: black"],
+html[data-theme="noir"] [style*="color:#050505"],
+html[data-theme="noir"] [style*="color: #050505"] {
+    color: var(--g-ink-3) !important;
+}
+
+/* تعبئات نجاح خضراء صلبة مضمّنة → زجاج أخضر عميق بحبر فاتح */
+html[data-theme="noir"] [style*="background: #2ed573"],
+html[data-theme="noir"] [style*="background:#2ed573"],
+html[data-theme="noir"] [style*="background: rgb(46, 213, 115)"] {
+    background-color: var(--g-emerald) !important;
+    background-image: none !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: var(--edge-d) !important;
+    border-color: rgba(168, 247, 212, .5) !important;
+    color: var(--ok-l) !important;
+    --text-white: var(--g-ink);
+    --gold: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+    --green-success: var(--ok-l);
+    --red-danger: var(--bad-l);
+    --info: var(--cool-l);
+}
+html[data-theme="noir"] [style*="background: #2ed573"] i,
+html[data-theme="noir"] [style*="background:#2ed573"] i { color: var(--ok-l) !important; }
+
+/* حدود مضمّنة */
+html[data-theme="noir"] [style*="border-color:#444"],
+html[data-theme="noir"] [style*="border-color: #444"],
+html[data-theme="noir"] [style*="border-color: rgb(68, 68, 68)"],
+html[data-theme="noir"] [style*="border-color:#555"],
+html[data-theme="noir"] [style*="border-color: #555"],
+html[data-theme="noir"] [style*="border-color: rgb(85, 85, 85)"],
+html[data-theme="noir"] [style*="border-color:#4a90e2"],
+html[data-theme="noir"] [style*="border-color: #4a90e2"],
+html[data-theme="noir"] [style*="border-color: rgb(74, 144, 226)"],
+html[data-theme="noir"] [style*="border-color:rgb(74,144,226)"] {
+    border-color: var(--e-md) !important;
+}
+html[data-theme="noir"] [style*="dashed #333"],
+html[data-theme="noir"] [style*="dashed #444"],
+html[data-theme="noir"] [style*="dashed #555"],
+html[data-theme="noir"] [style*="dashed rgb(51, 51, 51)"],
+html[data-theme="noir"] [style*="dashed rgb(68, 68, 68)"],
+html[data-theme="noir"] [style*="solid #333"],
+html[data-theme="noir"] [style*="solid #444"],
+html[data-theme="noir"] [style*="solid #555"],
+html[data-theme="noir"] [style*="solid #666"],
+html[data-theme="noir"] [style*="solid rgb(51, 51, 51)"],
+html[data-theme="noir"] [style*="solid rgb(68, 68, 68)"],
+html[data-theme="noir"] [style*="solid rgb(85, 85, 85)"],
+html[data-theme="noir"] [style*="solid rgb(102, 102, 102)"],
+html[data-theme="noir"] [style*="solid #4a90e2"] {
+    border-color: var(--e-md) !important;
+}
+html[data-theme="noir"] [style*="rgba(212, 175, 55"],
+html[data-theme="noir"] [style*="rgba(212,175,55"],
+html[data-theme="noir"] [style*="rgba(74, 144, 226"],
+html[data-theme="noir"] [style*="rgba(74,144,226"] {
+    border-color: var(--e-md) !important;
+}
+
+/* تدرّجات مضمّنة على بطاقات الإحصاء → زجاج حليبي */
+html[data-theme="noir"] .stat-card[style*="linear-gradient"] {
+    background: var(--g-frost) !important;
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-hi) !important;
+    box-shadow: var(--edge-w) !important;
+    color: var(--g-ink-3) !important;
+}
+
+/* =====================================================================
+   13) سويتش شكل النظام — زر تشغيل/إيقاف فقط (بلا لوحة إعدادات)
+   ===================================================================== */
+.rsx {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+.rsx-toggle {
+    position: relative;
+    width: 66px;
+    height: 32px;
+    border-radius: 999px;
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    transition: box-shadow .3s ease, border-color .3s ease, background .35s ease;
+}
+.rsx-ic {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    line-height: 1;
+    opacity: .55;
+    transition: opacity .3s ease, color .3s ease;
+    pointer-events: none;
+}
+.rsx-ic-a { inset-inline-start: 11px; }
+.rsx-ic-b { inset-inline-end: 11px; }
+.rsx-toggle[aria-checked="false"] .rsx-ic-a,
+.rsx-toggle[aria-checked="true"] .rsx-ic-b { opacity: .22; }
+.rsx-knob {
+    position: absolute;
+    top: 3px;
+    inset-inline-start: 3px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    transition: inset-inline-start .45s cubic-bezier(.34, 1.45, .5, 1), background .35s ease, box-shadow .35s ease, transform .2s ease;
+}
+.rsx-toggle[aria-checked="true"] .rsx-knob { inset-inline-start: 37px; }
+.rsx-toggle:hover .rsx-knob { transform: scale(1.06); }
+.rsx-toggle:active .rsx-knob { transform: scale(.94); }
+.rsx-toggle:focus-visible { outline: 2px solid rgba(255, 255, 255, .6); outline-offset: 3px; }
+
+/* داخل الوضع الذهبي: معدن دافئ */
+html[data-theme="gold"] .rsx-toggle {
+    background: linear-gradient(180deg, #1c1508 0%, #2a2010 50%, #120d04 100%);
+    border: 1px solid rgba(212, 175, 55, .55);
+    box-shadow: inset 0 1px 0 rgba(243, 229, 171, .35), inset 0 -6px 12px rgba(0, 0, 0, .6), 0 4px 12px rgba(0, 0, 0, .45);
+}
+html[data-theme="gold"] .rsx-ic { color: #d4af37; }
+html[data-theme="gold"] .rsx-knob {
+    background: radial-gradient(circle at 32% 28%, #fdf6d8 0%, #d4af37 55%, #8a6516 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .6), inset 0 1px 1px rgba(255, 255, 255, .85);
+}
+html[data-theme="gold"] .rsx-toggle:hover {
+    border-color: #f3e5ab;
+    box-shadow: inset 0 1px 0 rgba(243, 229, 171, .5), 0 0 16px rgba(212, 175, 55, .35);
+}
+
+/* داخل الوضع الزجاجي: زجاج فوق زجاج — ضبابية قليلة */
+html[data-theme="noir"] .rsx-toggle {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--lift-sm);
+}
+html[data-theme="noir"] .rsx-ic { color: var(--g-ink-2); }
+html[data-theme="noir"] .rsx-knob {
+    background: rgba(255, 255, 255, .88);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .5), var(--edge-w);
+}
+html[data-theme="noir"] .rsx-toggle[aria-checked="true"] {
+    background: var(--g-frost);
+    border-color: rgba(255, 255, 255, .8);
+}
+html[data-theme="noir"] .rsx-toggle[aria-checked="true"] .rsx-knob {
+    background: rgba(11, 16, 20, .82);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .5), var(--edge-d);
+}
+html[data-theme="noir"] .rsx-toggle[aria-checked="true"] .rsx-ic { color: var(--g-ink-3); }
+html[data-theme="noir"] .rsx-toggle:hover { border-color: rgba(255, 255, 255, .75); }
+
+/* مقاس مضغوط لشاشات الجوال والشارب النحيف */
+@media (max-width: 950px) {
+    .rsx-toggle { width: 50px; height: 24px; }
+    .rsx-knob { width: 18px; height: 18px; top: 2px; inset-inline-start: 2px; }
+    .rsx-toggle[aria-checked="true"] .rsx-knob { inset-inline-start: 30px; }
+    .rsx-ic { font-size: 9px; }
+    .rsx-ic-a { inset-inline-start: 8px; }
+    .rsx-ic-b { inset-inline-end: 8px; }
+}
+
+/* =====================================================================
+   13b) تجاوز التخطيط المضغوط — استعلامات الوسائط في style.css تفرض تعبئة
+        مصمتة بـ !important على حاوية القطع وتذييل السلة وصفوف الجداول،
+        فتحجب صورة الخلفية. نُعيددها زجاجاً شفافاً بأولوية أعلى (#pos-screen)
+        حتى تظهر الخلفية من خلال كل طبقات شاشة الكاشير في الوضعين الأفقي والمضغوط.
+   ===================================================================== */
+html[data-theme="noir"] #pos-screen .items-section-container {
+    background: rgba(10, 14, 18, .08) !important;
+}
+html[data-theme="noir"] #pos-screen .cart-footer {
+    background-color: rgba(6, 9, 13, .34) !important;
+    background-image: var(--g-sheen-d) !important;
+}
+html[data-theme="noir"] #pos-screen .cart-section {
+    background-color: rgba(8, 11, 16, .20) !important;
+    background-image: var(--g-sheen-d) !important;
+}
+/* تفاصيل الباقة: زجاج حليبي خفيف فوق لون الباقة */
+html[data-theme="noir"] .package-card .package-details {
+    background: var(--g-frost-3) !important;
+    color: var(--g-ink-3) !important;
+}
+html[data-theme="noir"] .pkg-gold .package-details {
+    background: var(--g-frost-3) !important;
+    color: #2a2005 !important;
+}
+/* صفوف جسم الجدول داخل النوافذ في التخطيط المضغوط: تبقى زجاجاً حليبياً لا بطاقة داكنة.
+   نقتصر على tbody كي يبقى رأس الجدول مدخّناً وحبره الفاتح مقروءاً. */
+html[data-theme="noir"] .modal-content .invoices-table tbody tr,
+html[data-theme="noir"] .modal-content .cart-table tbody tr {
+    background: var(--g-frost) !important;
+    border-color: var(--e-hi) !important;
+}
+
+html[data-theme="noir"] .discount-wrapper .discount-input-elegant {
+    background: transparent !important;
+    color: #ffd7db !important;
+    caret-color: #ffd7db;
+    --gold: var(--g-ink);
+    --text-white: var(--g-ink);
+    --text-gray: var(--g-ink-2);
+}
+html[data-theme="noir"] .discount-wrapper .discount-input-elegant::placeholder {
+    color: rgba(255, 215, 219, .85);
+}
+
+/* الورق معزول عن تجاوزات الزجاج */
+html[data-theme="noir"] #paper-wrapper {
+    background: #fff !important;
+    color: #111 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+html[data-theme="noir"] #fabric-canvas {
+    background: #fff !important;
+    color: #111 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+html[data-theme="noir"] #paper-wrapper [style*="background: #fff"],
+html[data-theme="noir"] #paper-wrapper [style*="background:#fff"],
+html[data-theme="noir"] #paper-wrapper [style*="background: #ffffff"],
+html[data-theme="noir"] #paper-wrapper [style*="background:#ffffff"],
+html[data-theme="noir"] #paper-wrapper [style*="background: rgb(255, 255, 255)"],
+html[data-theme="noir"] #paper-wrapper [style*="background-color: rgb(255, 255, 255)"] {
+    background: #fff !important;
+    color: #111 !important;
+}
+html[data-theme="noir"] #paper-wrapper * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme="noir"] #admin-invoice-designer > h2,
+html[data-theme="noir"] #admin-more-menu > h2 {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    border-radius: var(--r-md);
+    padding: 12px 16px;
+    box-shadow: var(--edge-d);
+}
+
+html[data-theme="noir"] #packages-container + div > span {
+    background: var(--g-smoke-2);
+    backdrop-filter: var(--g-blur);
+    -webkit-backdrop-filter: var(--g-blur);
+    border: 1px solid var(--e-md);
+    border-radius: 999px;
+    padding: 4px 12px;
+    box-shadow: var(--edge-d);
+}
+
+@media (min-width: 1200px) and (min-height: 650px) {
+    html.is-desktop[data-theme="noir"] #pos-content {
+        width: 100%;
+        padding: 14px;
+        gap: 14px;
+    }
+    html.is-desktop[data-theme="noir"] #pos-screen .cart-section,
+    html.is-desktop[data-theme="noir"] #pos-screen .items-section-container {
+        flex: 1;
+        min-width: 0;
+        max-width: none;
+        border: 1px solid var(--e-md);
+        border-radius: var(--r-lg);
+        box-shadow: var(--edge-d), var(--lift-sm);
+    }
+    html.is-desktop[data-theme="noir"] #pos-screen .items-header {
+        border-radius: 21px 21px 0 0;
+    }
+    html.is-desktop[data-theme="noir"] #pos-screen .cart-footer {
+        border-radius: 0 0 21px 21px;
+    }
+}
+
+@media (max-width: 950px) and (orientation: portrait) {
+    html[data-theme="noir"] #pos-screen.active-screen {
+        background: var(--g-smoke-2) !important;
+        backdrop-filter: var(--g-blur);
+        -webkit-backdrop-filter: var(--g-blur);
+    }
+}
+
+/* =====================================================================
+   14) الطباعة: لا زجاج ولا ضباب على الورق — الفاتورة تخرج بيضاء نظيفة
+   ===================================================================== */
+@media print {
+    html[data-theme="noir"] #btn-main-checkout { transition: none !important; }
+    html[data-theme="noir"] *,
+    html[data-theme="noir"] *::before,
+    html[data-theme="noir"] *::after {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transition: none !important;
+        animation: none !important;
+    }
+    html[data-theme="noir"] body::before,
+    html[data-theme="noir"] body::after { display: none !important; content: none !important; }
+    html[data-theme="noir"] body { background: #ffffff !important; color: #000000 !important; }
+    html[data-theme="noir"] .rsx,
+    html[data-theme="noir"] .modal-overlay,
+    html[data-theme="noir"] #toast-container { display: none !important; }
+    html[data-theme="noir"] .top-bar,
+    html[data-theme="noir"] .cart-section,
+    html[data-theme="noir"] .items-section-container,
+    html[data-theme="noir"] .admin-content,
+    html[data-theme="noir"] .admin-sidebar {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    html[data-theme="noir"] .modal-content,
+    html[data-theme="noir"] .modal-content * {
+        background-image: none !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        color: #000000 !important;
+    }
+}

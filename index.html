@@ -26,6 +26,18 @@
     <!-- ربط ملف التصميم -->
     <link rel="stylesheet" href="style.css">
 
+    <!-- الوضع الزجاجي: يُقرأ مخزّنًا قبل أول رسم حتى لا وميض بين الوضعين -->
+    <script>
+    (function () {
+        try {
+            var r = document.documentElement, m = localStorage.getItem('royal_theme_v1');
+            r.setAttribute('data-theme', m === 'noir' ? 'noir' : 'gold');
+            if (m === 'noir') r.style.setProperty('--noir-bg-image', 'url("bg.png")');
+        } catch (e) { document.documentElement.setAttribute('data-theme', 'gold'); }
+    })();
+    </script>
+    <link rel="stylesheet" href="glass-noir.css">
+
     <!-- كشف البيئة قبل أول رسم: يضع صنف is-mobile أو is-desktop على وسم html -->
     <script>
     (function () {
@@ -1305,7 +1317,10 @@
 
     <!-- مكتبة نظام السحب والإفلات التفاعلي -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js"></script>
-    
+
+    <!-- مبدّل الشكل (ذهبي ⇄ زجاجي) + صورة الخلفية: لا يغيّر أي منطق -->
+    <script src="theme-switch.js"></script>
+
     <!-- استدعاء ملف الجافاسكريبت كـ Module لدعم Firebase -->
     <script type="module" src="app.js"></script>
 
